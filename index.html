@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Tarefas — Técnicos de TI | C@P Consultoria</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --brand:#F2701A; --brand-dark:#C1662E;
+    --ink:#1F2328; --muted:#6B7280; --line:#E4E7EC;
+    --bg:#F5F6F8; --card:#FFFFFF;
+    --side:#22262E; --side-2:#2B303A; --side-line:#363C46;
+    --st-orcado:#6B7280; --st-aprovado:#2563EB; --st-compras:#D97706;
+    --st-exec:#F2701A; --st-cobranca:#7C3AED; --st-final:#16A34A;
+    --st-aguardcli:#0891B2; --st-reprovado:#DC2626;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  #app{display:flex;min-height:100vh}
+  /* Sidebar */
+  aside{width:236px;background:var(--side);color:#D6DAE0;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .logo{display:flex;align-items:center;gap:11px;padding:15px 16px;border-bottom:1px solid var(--side-line)}
+  .logo img{width:40px;height:40px;object-fit:contain;border-radius:9px;background:#fff;padding:2px;flex-shrink:0}
+  .logo b{color:#fff;font-size:15px;letter-spacing:.2px}
+  .logo span{display:block;color:var(--brand);font-size:11px;font-weight:700;margin-top:2px}
+  nav{padding:10px 8px;overflow-y:auto;flex:1}
+  .nav-sec{color:#7C838F;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:14px 12px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:#C6CBD3;font-weight:500}
+  .nav-item:hover{background:var(--side-2);color:#fff}
+  .nav-item.active{background:var(--brand);color:#fff}
+  .nav-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .nav-item .cnt{margin-left:auto;background:rgba(255,255,255,.14);color:#fff;font-size:11px;padding:1px 7px;border-radius:20px}
+  .nav-item.active .cnt{background:rgba(0,0,0,.18)}
+  .side-foot{padding:12px 16px;border-top:1px solid var(--side-line);font-size:11px;color:#7C838F}
+  /* Main */
+  main{flex:1;min-width:0;display:flex;flex-direction:column}
+  header.top{background:var(--card);border-bottom:1px solid var(--line);padding:16px 26px;display:flex;align-items:center;gap:14px}
+  header.top h1{font-size:19px;margin:0}
+  header.top .sub{color:var(--muted);font-size:12.5px}
+  .content{padding:22px 26px;flex:1}
+  /* Buttons */
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:#F9FAFB}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.danger{color:#B42318;border-color:#FDA29B}
+  .btn.danger:hover{background:#FEF3F2}
+  /* Cards / tables */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .kpi{padding:16px 18px}
+  .kpi .lbl{color:var(--muted);font-size:12px;font-weight:600}
+  .kpi .val{font-size:26px;font-weight:700;margin-top:4px}
+  .kpi .val small{font-size:14px;color:var(--muted);font-weight:600}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-size:13px}
+  th{color:var(--muted);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  tbody tr:hover{background:#FAFAFB}
+  /* Forms */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;color:#344054}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(242,112,26,.12)}
+  textarea{resize:vertical;min-height:70px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  /* Pipeline */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}
+  .wk-nav{display:flex;align-items:center;gap:8px;font-weight:600}
+  .wk-nav .btn{padding:6px 10px}
+  .days{display:flex;gap:6px;flex-wrap:wrap}
+  .day{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;text-align:center;cursor:pointer;min-width:52px}
+  .day:hover{border-color:var(--brand)}
+  .day.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .day.disabled{opacity:.5;cursor:default;pointer-events:none}
+  .day b{display:block;font-size:12px}
+  .day small{font-size:10.5px;color:var(--muted)}
+  .day.on small{color:rgba(255,255,255,.85)}
+  .switch{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:#344054}
+  /* Lançamento cards */
+  .lanc{padding:15px 17px;border-left:4px solid var(--line);margin-bottom:12px}
+  .lanc .h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .lanc .title{font-size:15px;font-weight:700}
+  .lanc .cli{color:var(--muted);font-size:12.5px;margin-top:1px}
+  .meta{display:flex;flex-wrap:wrap;gap:14px;margin:11px 0;font-size:12.5px;color:#475467}
+  .meta b{color:var(--ink);font-weight:600}
+  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .badge.interno{background:#EEF2FF;color:#3730A3}
+  .badge.externo{background:#FEF3C7;color:#92400E}
+  .desc{font-size:13px;color:#475467;margin:6px 0 12px;white-space:pre-wrap}
+  .lanc .acts{display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+  .empty{text-align:center;color:var(--muted);padding:46px 20px}
+  .empty .big{font-size:34px}
+  .stage-title{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+  .stage-title .dot{width:11px;height:11px;border-radius:50%}
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow-y:auto}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:640px;box-shadow:0 20px 40px rgba(0,0,0,.2)}
+  .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
+  .modal .mh h3{margin:0;font-size:17px}
+  .modal .mb{padding:22px}
+  .modal .mf{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;border-top:1px solid var(--line)}
+  .x{cursor:pointer;color:var(--muted);font-size:22px;line-height:1;border:none;background:none}
+  /* Follow-up list */
+  .fu{border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:10px}
+  .fu .fh{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+  .fu .ftag{font-weight:700;padding:1px 8px;border-radius:20px;background:#F2F4F7;color:#344054}
+  /* Toast */
+  #toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:9px;font-weight:600;font-size:13px;opacity:0;transform:translateY(10px);transition:.25s;z-index:99;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+  #toast.show{opacity:1;transform:translateY(0)}
+  .banner{background:#FFF4EC;border:1px solid #FBD9BE;color:#8A4B12;padding:9px 14px;border-radius:9px;font-size:12.5px;margin-bottom:16px}
+  /* Login */
+  #login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 30% 15%,#2B303A 0%,#181B21 72%);z-index:100}
+  .login-card{background:#fff;border-radius:16px;padding:34px 30px 28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:center}
+  .login-card::before{content:"";display:block;height:4px;width:54px;background:var(--brand);border-radius:20px;margin:0 auto 18px}
+  .login-logo{width:84px;height:84px;object-fit:contain;border-radius:15px;margin-bottom:14px}
+  .login-card h2{margin:0;font-size:20px}
+  .login-sub{color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.7px;margin:3px 0 22px;text-transform:uppercase}
+  .login-card .field{text-align:left}
+  .login-err{color:#B42318;font-size:12.5px;min-height:18px;margin:0 0 10px;text-align:left}
+  .login-foot{margin-top:16px;font-size:11.5px;color:var(--muted)}
+  /* v3 additions */
+  .pw-wrap{position:relative}
+  .pw-wrap input{padding-right:40px}
+  .pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:16px;padding:4px 6px;opacity:.65}
+  .pw-toggle:hover{opacity:1}
+  .mini-add{font-size:11px;font-weight:600;color:var(--brand);background:none;border:none;cursor:pointer;padding:0 0 0 6px}
+  .mini-add:hover{text-decoration:underline}
+  .valor-box{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#F9FAFB;font-weight:700;color:var(--brand)}
+  .tec-row{display:flex;gap:8px;margin-bottom:8px}
+  .tec-row select{flex:1}
+  .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .perm-chk{display:flex;align-items:center;gap:7px;font-weight:500;font-size:13px}
+  .perm-chk input{width:auto}
+  .day-group{margin-bottom:22px}
+  .day-head{font-size:15px;font-weight:700;padding:9px 13px;background:#EEF1F4;border-radius:9px;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-left:4px solid var(--brand)}
+  .day-head small{color:var(--muted);font-weight:600;font-size:12px}
+  .cnt2{margin-left:auto;background:#fff;border:1px solid var(--line);color:#344054;font-size:12px;font-weight:600;padding:1px 9px;border-radius:20px}
+  @media(max-width:820px){
+    #app{flex-direction:column}
+    aside{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto}
+    nav{display:flex;padding:6px;gap:4px}
+    .nav-sec{display:none}.side-foot{display:none}.logo{border:none}
+    .nav-item{white-space:nowrap;padding:8px 12px}
+    .row2,.row3{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="login-card">
+    <img class="login-logo" src="data:image/png;base64,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" alt="FK">
+    <h2>Gestão de Serviços</h2>
+    <div class="login-sub">C@P Consultoria · TI</div>
+    <div class="field"><label>E-mail</label><input id="lg_email" type="email" autocomplete="username" placeholder="voce@empresa.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="field"><label>Senha</label>
+      <div class="pw-wrap"><input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" class="pw-toggle" id="lg_eye" onclick="togglePw()" title="Mostrar/ocultar senha">👁</button></div>
+    </div>
+    <label class="switch" style="margin:0 0 12px"><input type="checkbox" id="lg_remember" style="width:auto"> Lembrar meu acesso</label>
+    <div id="lg_err" class="login-err"></div>
+    <button class="btn primary" style="width:100%;justify-content:center;padding:11px" id="lg_btn" onclick="doLogin()">Entrar</button>
+    <div class="login-foot" id="lg_mode"></div>
+  </div>
+</div>
+<div id="app" style="display:none">
+  <aside>
+    <div class="logo"><img src="data:image/png;base64,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" alt="FK"><div><b>Gestão de Serviços</b><span>C@P CONSULTORIA · TI</span></div></div>
+    <nav id="nav"></nav>
+    <div class="side-foot" id="foot"></div>
+  </aside>
+  <main>
+    <header class="top">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+    </header>
+    <div class="content" id="view"></div>
+  </main>
+</div>
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const SUPABASE_URL = 'https://etplzllkkqztyccvegsi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0cGx6bGxra3F6dHljY3ZlZ3NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDM5NTYsImV4cCI6MjEwNDkxOTk1Nn0.HvbKPpoP1E9Y5j_lZbq64YSp5Gfoer_ZJ23Uk2MR3CU';
+
+/* ============ AUTH / SESSÃO ============ */
+const SESSION_KEY='cap_gestao_ti_session';
+const REMEMBER_KEY='cap_gestao_ti_remember';
+let session=null;
+function loadSession(){try{session=JSON.parse(localStorage.getItem(SESSION_KEY))||null;}catch(e){session=null;}}
+function saveSession(s){session=s;localStorage.setItem(SESSION_KEY,JSON.stringify(s));}
+function clearSession(){session=null;localStorage.removeItem(SESSION_KEY);}
+function authToken(){return (session&&session.access_token&&!session.local)?session.access_token:SUPABASE_KEY;}
+async function apiLogin(email,pass){
+  if(useLocalAuth()){saveSession({user:{email},access_token:'local',local:true});return;}
+  const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
+    method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password:pass})});
+  const d=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(d.error_description||d.msg||d.message||('Erro '+res.status));
+  saveSession({access_token:d.access_token,refresh_token:d.refresh_token,user:d.user,expires_at:Date.now()+(d.expires_in||3600)*1000});
+}
+async function refreshToken(){
+  if(!session||!session.refresh_token)return false;
+  try{const res=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{
+    method:'POST',headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:session.refresh_token})});
+    if(!res.ok)return false;const d=await res.json();
+    saveSession({...session,access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+(d.expires_in||3600)*1000});
+    return true;}catch(e){return false;}
+}
+function useLocalAuth(){return useLocal;}
+
+/* ============ STORE (Supabase REST OU localStorage) ============ */
+const useLocal = !/^https:\/\/[a-z0-9-]+\.supabase\.co/.test(SUPABASE_URL) || SUPABASE_URL.includes('SEU-PROJETO');
+const TABLES = ['clientes','tecnicos','tipos_servico','lancamentos','followups','usuarios','metas','motivos'];
+
+async function sbFetch(path,{method='GET',body=null}={},_retry=false){
+  const opts={method,headers:{
+    'apikey':SUPABASE_KEY,'Authorization':'Bearer '+authToken(),
+    'Content-Type':'application/json','Prefer':'return=representation'}};
+  if(body) opts.body=JSON.stringify(body);
+  const res=await fetch(SUPABASE_URL+'/rest/v1/'+path,opts);
+  if(res.status===401 && !_retry && session && !session.local){
+    if(await refreshToken()) return sbFetch(path,{method,body},true);
+    doLogout(); throw new Error('Sessão expirada. Faça login novamente.');
+  }
+  if(!res.ok){throw new Error('Supabase '+res.status+': '+await res.text());}
+  if(res.status===204) return null;
+  return res.json();
+}
+const RemoteStore={
+  list:t=>sbFetch(t+'?select=*'),
+  insert:async(t,o)=>(await sbFetch(t,{method:'POST',body:[o]}))[0],
+  update:async(t,id,o)=>(await sbFetch(t+'?id=eq.'+id,{method:'PATCH',body:o}))[0],
+  remove:(t,id)=>sbFetch(t+'?id=eq.'+id,{method:'DELETE'})
+};
+const LocalStore={
+  _k:'cap_gestao_ti_v1',_d:null,
+  _load(){if(this._d)return;const r=localStorage.getItem(this._k);
+    this._d=r?JSON.parse(r):{clientes:[],tecnicos:[],tipos_servico:[],lancamentos:[],followups:[],usuarios:[],_seq:1};
+    ['clientes','tecnicos','tipos_servico','lancamentos','followups','usuarios','metas','motivos'].forEach(k=>{if(!this._d[k])this._d[k]=[];});},
+  _save(){localStorage.setItem(this._k,JSON.stringify(this._d));},
+  async list(t){this._load();return JSON.parse(JSON.stringify(this._d[t]));},
+  async insert(t,o){this._load();const row={...o,id:this._d._seq++,created_at:new Date().toISOString()};
+    this._d[t].push(row);this._save();return row;},
+  async update(t,id,o){this._load();const i=this._d[t].findIndex(r=>r.id===id);
+    if(i>=0)this._d[t][i]={...this._d[t][i],...o};this._save();return this._d[t][i];},
+  async remove(t,id){this._load();this._d[t]=this._d[t].filter(r=>r.id!==id);
+    if(t==='lancamentos')this._d.followups=this._d.followups.filter(f=>f.lancamento_id!==id);this._save();}
+};
+const store=useLocal?LocalStore:RemoteStore;
+
+/* ============ ESTADO ============ */
+const db={clientes:[],tecnicos:[],tipos_servico:[],lancamentos:[],followups:[],usuarios:[],metas:[],motivos:[]};
+const ETAPAS=[
+  {key:'orcado',label:'Serviços Orçados',color:'var(--st-orcado)'},
+  {key:'aguardando_cliente',label:'Enviado ao Cliente',color:'var(--st-aguardcli)'},
+  {key:'aprovado',label:'Serviços Aprovados',color:'var(--st-aprovado)'},
+  {key:'aguardando_compras',label:'Aguardando Compras',color:'var(--st-compras)'},
+  {key:'em_execucao',label:'Em Execução',color:'var(--st-exec)'},
+  {key:'cobranca',label:'Cobrança',color:'var(--st-cobranca)'},
+  {key:'finalizado',label:'Serviço Finalizado',color:'var(--st-final)'}
+];
+const DIAS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const DIAS_C=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const state={
+  view:'dashboard',
+  weekStart:startOfWeek(new Date()),
+  wkField:'data_abertura',
+  wkFilterOn:false,
+  wkDay:null,
+  dashAno:new Date().getFullYear(),
+  dashMes:String(new Date().getMonth()+1),
+  metaAno:new Date().getFullYear(),
+  repAno:new Date().getFullYear(),
+  repMes:'todos'
+};
+let editingId=null, charts=[];
+function destroyCharts(){charts.forEach(c=>{try{c.destroy();}catch(e){}});charts=[];}
+
+/* ============ HELPERS ============ */
+function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+function isoDay(d){return d.toISOString().slice(0,10);}
+function brDate(iso){if(!iso)return '—';const p=iso.slice(0,10).split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+function sameDay(a,b){return a.toDateString()===b.toDateString();}
+function calcHoras(ini,fim){if(!ini||!fim)return 0;const a=ini.split(':').map(Number),b=fim.split(':').map(Number);
+  let m=(b[0]*60+b[1])-(a[0]*60+a[1]);if(m<0)m+=1440;return m/60;}
+function brl(n){return 'R$ '+(Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function num(n){return (Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});}
+function nome(arr,id){const x=arr.find(r=>r.id===id);return x?x.nome:'—';}
+function tecById(id){return db.tecnicos.find(t=>t.id===id);}
+function lancTecIds(l){return Array.isArray(l.tecnico_ids)&&l.tecnico_ids.length?l.tecnico_ids:(l.tecnico_id?[l.tecnico_id]:[]);}
+function tecNomes(l){const ids=lancTecIds(l);return ids.length?ids.map(id=>nome(db.tecnicos,id)).join(', '):'—';}
+function horasLanc(l){return calcHoras(l.hora_inicio,l.hora_fim);}
+function custoLanc(l){const h=horasLanc(l);return lancTecIds(l).reduce((a,id)=>{const t=tecById(id);return a+h*(t?Number(t.custo_hora)||0:0);},0);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ============ TOAST / MODAL ============ */
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+function openModal(html){document.getElementById('modalRoot').innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">'+html+'</div></div>';}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+
+/* ============ NAV ============ */
+function counts(){const c={};ETAPAS.forEach(e=>c[e.key]=db.lancamentos.filter(l=>l.etapa===e.key).length);return c;}
+function navItem(v,label){return `<div class="nav-item ${state.view===v?'active':''}" onclick="go('${v}')">${label}</div>`;}
+function renderNav(){
+  const c=counts();
+  let h='';
+  if(can('dashboard'))h+=navItem('dashboard','📊 Dashboard');
+  if(can('novo'))h+=navItem('novo','➕ Novo Lançamento');
+  if(can('fluxo'))h+='<div class="nav-sec">Fluxo de Serviços</div>'+
+    ETAPAS.map(e=>`<div class="nav-item ${state.view==='pipe:'+e.key?'active':''}" onclick="go('pipe:${e.key}')"><span class="dot" style="background:${e.color}"></span>${e.label}${c[e.key]?`<span class="cnt">${c[e.key]}</span>`:''}</div>`).join('');
+  if(can('reprovados')){const nr=db.lancamentos.filter(l=>l.etapa==='reprovado').length;
+    h+=`<div class="nav-item ${state.view==='reprovados'?'active':''}" onclick="go('reprovados')"><span class="dot" style="background:var(--st-reprovado)"></span>Reprovados${nr?`<span class="cnt">${nr}</span>`:''}</div>`;}
+  if(can('clientes')||can('tecnicos')||can('tipos')||can('metas')){
+    h+='<div class="nav-sec">Cadastros</div>';
+    if(can('clientes'))h+=navItem('clientes','🏢 Clientes');
+    if(can('tecnicos'))h+=navItem('tecnicos','🧰 Técnicos');
+    if(can('tipos'))h+=navItem('tipos','🛠️ Tipos de Serviço');
+    if(can('metas'))h+=navItem('metas','🎯 Metas');
+  }
+  if(can('usuarios'))h+='<div class="nav-sec">Administração</div>'+navItem('usuarios','🔐 Usuários e Permissões');
+  document.getElementById('nav').innerHTML=h;
+  const modo=useLocal?'⚠️ Modo local':'☁️ Supabase';
+  const perfil=isAdmin()?'Administrador':perfilLabel((currentUserRow()||{}).perfil);
+  document.getElementById('foot').innerHTML=
+    `<div style="margin-bottom:2px;color:#C6CBD3;word-break:break-all">👤 ${session&&session.user?esc(session.user.email):'—'}</div>`+
+    `<div style="margin-bottom:8px;color:#8A9099;font-size:10.5px">${esc(perfil)}</div>`+
+    `<button class="btn sm" style="width:100%;justify-content:center;margin-bottom:8px" onclick="doLogout()">Sair</button>`+
+    modo;
+}
+function go(v){state.view=v;state.wkDay=null;render();}
+
+/* ============ RENDER PRINCIPAL ============ */
+function render(){
+  if(!allowedView(state.view))state.view=firstAllowed();
+  renderNav();
+  const t=document.getElementById('pageTitle'),s=document.getElementById('pageSub'),v=document.getElementById('view');
+  destroyCharts();
+  if(state.view==='dashboard'){t.textContent='Dashboard';s.textContent='Horas, custo e metas';v.innerHTML=viewDashboard();mountChart();mountMetaChart();}
+  else if(state.view==='novo'){t.textContent=editingId?'Editar Lançamento':'Novo Lançamento';s.textContent='Ordem de serviço';v.innerHTML=viewForm();initLancForm();}
+  else if(state.view==='clientes'){t.textContent='Clientes';s.textContent=db.clientes.length+' cadastrados';v.innerHTML=viewClientes();}
+  else if(state.view==='tecnicos'){t.textContent='Técnicos';s.textContent=db.tecnicos.length+' cadastrados';v.innerHTML=viewTecnicos();}
+  else if(state.view==='tipos'){t.textContent='Tipos de Serviço';s.textContent=db.tipos_servico.length+' cadastrados';v.innerHTML=viewTipos();}
+  else if(state.view==='usuarios'){t.textContent='Usuários e Permissões';s.textContent=db.usuarios.length+' usuários';v.innerHTML=viewUsuarios();}
+  else if(state.view==='metas'){t.textContent='Metas';s.textContent='Metas de horas por mês';v.innerHTML=viewMetas();}
+  else if(state.view==='reprovados'){t.textContent='Reprovados';s.textContent='Pedidos reprovados';v.innerHTML=viewReprovados();mountRepChart();mountMotivosChart();}
+  else if(state.view.startsWith('pipe:')){const e=ETAPAS.find(x=>'pipe:'+x.key===state.view);
+    t.textContent=e.label;s.textContent='Fluxo de serviços';v.innerHTML=viewPipeline(e);}
+}
+
+/* ============ DASHBOARD ============ */
+const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MESES_C=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function refMonth(l){return l.data_execucao||l.data_finalizacao||l.data_abertura||'';}
+function diasEntre(a,b){if(!a||!b)return null;const d1=new Date(String(a).slice(0,10)+'T00:00:00'),d2=new Date(String(b).slice(0,10)+'T00:00:00');return Math.round((d2-d1)/86400000);}
+function leadTime(l){return diasEntre(l.data_abertura,l.data_finalizacao);}
+function diasEmAberto(l){return diasEntre(l.data_abertura,isoDay(new Date()));}
+function yearsAvailable(){
+  const set=new Set([new Date().getFullYear()]);
+  db.lancamentos.forEach(l=>{const d=refMonth(l);if(d)set.add(+d.slice(0,4));if(l.data_reprovacao)set.add(+String(l.data_reprovacao).slice(0,4));});
+  (db.metas||[]).forEach(m=>set.add(+m.ano));
+  return [...set].sort((a,b)=>b-a);
+}
+function inPeriodo(d,ano,mes){if(!d)return false;d=String(d).slice(0,10);if(+d.slice(0,4)!==+ano)return false;if(mes!=='todos'&&+d.slice(5,7)!==+mes)return false;return true;}
+function lancsFiltrados(){return db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),state.dashAno,state.dashMes));}
+function metaFor(ano,mes){const m=(db.metas||[]).find(x=>+x.ano===+ano&&+x.mes===+mes);return m?Number(m.meta_horas)||0:0;}
+function horasRealizadasMes(ano,mes){return db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
+function horasCobradasMes(ano,mes){return db.lancamentos.filter(l=>['cobranca','finalizado'].includes(l.etapa)&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
+function viewDashboard(){
+  const ls=lancsFiltrados();
+  const totHoras=ls.reduce((a,l)=>a+horasLanc(l),0);
+  const totCusto=ls.reduce((a,l)=>a+custoLanc(l),0);
+  const emExec=db.lancamentos.filter(l=>l.etapa==='em_execucao').length;
+  const fin=ls.filter(l=>l.etapa==='finalizado'&&leadTime(l)!=null);
+  const leadMedio=fin.length?fin.reduce((a,l)=>a+leadTime(l),0)/fin.length:null;
+  const anoInteiro=state.dashMes==='todos';
+  let meta=0,cobrado=0;
+  if(anoInteiro){for(let m=1;m<=12;m++){meta+=metaFor(state.dashAno,m);cobrado+=horasCobradasMes(state.dashAno,m);}}
+  else{meta=metaFor(state.dashAno,state.dashMes);cobrado=horasCobradasMes(state.dashAno,state.dashMes);}
+  const pct=meta>0?Math.round(totHoras/meta*100):0;
+  const anoOpts=yearsAvailable().map(y=>`<option value="${y}" ${+state.dashAno===y?'selected':''}>${y}</option>`).join('');
+  const mesOpts=`<option value="todos" ${anoInteiro?'selected':''}>Ano inteiro</option>`+
+    MESES.map((nm,i)=>`<option value="${i+1}" ${(!anoInteiro&&+state.dashMes===i+1)?'selected':''}>${nm}</option>`).join('');
+  return `
+  ${useLocal?'<div class="banner">Rodando em <b>modo local</b>: os dados ficam salvos apenas neste navegador. Preencha <b>SUPABASE_URL</b> e <b>SUPABASE_KEY</b> no topo do arquivo para usar o Supabase.</div>':''}
+  <div class="toolbar">
+    <span style="font-weight:600">Período:</span>
+    <select style="width:auto" onchange="state.dashMes=this.value;render()">${mesOpts}</select>
+    <select style="width:auto" onchange="state.dashAno=+this.value;render()">${anoOpts}</select>
+    ${can('metas')?'<button class="btn sm" onclick="go(\'metas\')">🎯 Editar metas</button>':''}
+  </div>
+  <div class="grid kpis" style="margin-bottom:18px">
+    <div class="card kpi"><div class="lbl">Horas realizadas</div><div class="val">${num(totHoras)}<small> h</small></div></div>
+    <div class="card kpi"><div class="lbl">Meta de horas (${anoInteiro?'ano':'mês'})</div><div class="val">${num(meta)}<small> h</small></div></div>
+    <div class="card kpi"><div class="lbl">Horas cobradas</div><div class="val">${num(cobrado)}<small> h</small></div></div>
+    <div class="card kpi"><div class="lbl">% da meta</div><div class="val" style="color:${pct>=100?'var(--st-final)':'var(--brand)'}">${meta>0?pct+'%':'—'}</div></div>
+    <div class="card kpi"><div class="lbl">Custo de mão de obra</div><div class="val" style="color:var(--brand)">${brl(totCusto)}</div></div>
+    <div class="card kpi"><div class="lbl">Em execução</div><div class="val">${emExec}</div></div>
+    <div class="card kpi"><div class="lbl">Lead time médio (atendimento)</div><div class="val">${leadMedio!=null?num(leadMedio):'—'}<small> dia(s)</small></div></div>
+  </div>
+  <div class="card" style="padding:20px;margin-bottom:18px">
+    <h3 style="margin:0 0 4px">Horas realizadas × previstas (meta) por técnico</h3>
+    <div class="hint" style="margin-bottom:14px">Meta = horas previstas/mês do técnico.</div>
+    <div style="height:360px"><canvas id="chart"></canvas></div>
+  </div>
+  <div class="card" style="padding:20px">
+    <h3 style="margin:0 0 4px">Meta × realizado × cobrado por mês — ${state.dashAno}</h3>
+    <div class="hint" style="margin-bottom:14px">Metas definidas na tela “Metas”. Cobrado = horas em Cobrança/Finalizado.</div>
+    <div style="height:320px"><canvas id="chartMeta"></canvas></div>
+  </div>`;
+}
+function mountChart(){
+  const ls=lancsFiltrados();
+  const mult=state.dashMes==='todos'?12:1;
+  const labels=[],horas=[],meta=[];
+  db.tecnicos.forEach(t=>{
+    const meus=ls.filter(l=>lancTecIds(l).includes(t.id));
+    const h=meus.reduce((a,l)=>a+horasLanc(l),0);
+    if(h>0||meus.length){labels.push(t.nome);horas.push(+h.toFixed(2));
+      meta.push(+((Number(t.horas_previstas_mes)||0)*mult).toFixed(2));}
+  });
+  const ctx=document.getElementById('chart');if(!ctx)return;
+  if(!labels.length){ctx.parentElement.innerHTML='<div class="empty"><div class="big">📊</div>Sem lançamentos com horas no período.</div>';return;}
+  charts.push(new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'Horas realizadas',data:horas,backgroundColor:'#C1662E',borderRadius:5},
+    {label:'Horas previstas (meta)',data:meta,backgroundColor:'#CBD5E1',borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+num(c.raw)+' h'}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Horas'}}}}}));
+}
+function mountMetaChart(){
+  const ctx=document.getElementById('chartMeta');if(!ctx)return;
+  const meta=[],real=[],cob=[];
+  for(let m=1;m<=12;m++){meta.push(+metaFor(state.dashAno,m).toFixed(2));real.push(+horasRealizadasMes(state.dashAno,m).toFixed(2));cob.push(+horasCobradasMes(state.dashAno,m).toFixed(2));}
+  charts.push(new Chart(ctx,{type:'bar',data:{labels:MESES_C,datasets:[
+    {label:'Meta',data:meta,backgroundColor:'#CBD5E1',borderRadius:4},
+    {label:'Realizado',data:real,backgroundColor:'#C1662E',borderRadius:4},
+    {label:'Cobrado',data:cob,backgroundColor:'#16A34A',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+num(c.raw)+' h'}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Horas'}}}}}));
+}
+/* ============ METAS ============ */
+function viewMetas(){
+  const anoOpts=yearsAvailable().map(y=>`<option value="${y}" ${+state.metaAno===y?'selected':''}>${y}</option>`).join('');
+  const rows=MESES.map((nm,i)=>{const mes=i+1,meta=metaFor(state.metaAno,mes),real=horasRealizadasMes(state.metaAno,mes),cob=horasCobradasMes(state.metaAno,mes),pct=meta>0?Math.round(real/meta*100):0;
+    return `<tr><td><b>${nm}</b></td>
+      <td><input type="number" step="0.5" min="0" id="meta_${mes}" value="${meta||''}" style="width:110px" placeholder="0"></td>
+      <td>${num(real)} h</td><td>${num(cob)} h</td>
+      <td>${meta>0?`<b style="color:${pct>=100?'var(--st-final)':'var(--brand)'}">${pct}%</b>`:'—'}</td></tr>`;}).join('');
+  return `<div class="banner">Defina a meta de horas de cada mês. “Realizado” e “Cobrado” são calculados automaticamente a partir dos lançamentos.</div>
+    <div class="toolbar"><span style="font-weight:600">Ano:</span>
+      <select style="width:auto" onchange="state.metaAno=+this.value;render()">${anoOpts}</select>
+      <button class="btn primary sm" onclick="saveMetas()">Salvar metas</button>
+    </div>
+    <div class="card"><table><thead><tr><th>Mês</th><th>Meta (h)</th><th>Realizado</th><th>Cobrado</th><th>% atingido</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function saveMetas(){
+  for(let mes=1;mes<=12;mes++){
+    const v=Number(val('meta_'+mes))||0;
+    const ex=(db.metas||[]).find(x=>+x.ano===+state.metaAno&&+x.mes===mes);
+    if(ex){if((Number(ex.meta_horas)||0)!==v)await store.update('metas',ex.id,{meta_horas:v});}
+    else if(v>0)await store.insert('metas',{ano:+state.metaAno,mes,meta_horas:v});
+  }
+  await refresh();render();toast('Metas salvas');
+}
+/* ============ REPROVADOS ============ */
+function repDate(l){return l.data_reprovacao||l.data_abertura||'';}
+async function aprovarDireto(id){await store.update('lancamentos',id,{etapa:'aprovado'});await refresh();render();toast('Enviado para Serviços Aprovados');}
+function motivoOpts(sel){return '<option value="">Selecione um motivo…</option>'+db.motivos.map(m=>`<option value="${esc(m.nome)}" ${m.nome===sel?'selected':''}>${esc(m.nome)}</option>`).join('');}
+function modalReprovar(id){
+  const l=db.lancamentos.find(x=>x.id===id);
+  openModal(`<div class="mh"><h3>Reprovar pedido</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="hint" style="margin-bottom:12px">${esc(nome(db.clientes,l.cliente_id))} · ${esc(nome(db.tipos_servico,l.tipo_servico_id))}</div>
+      <div class="field"><label>Motivo da reprovação *</label><select id="rep_motivo">${motivoOpts()}</select></div>
+      <div class="field"><label>Ou cadastre um novo motivo</label>
+        <div style="display:flex;gap:8px">
+          <input id="rep_novo" placeholder="Digite um novo motivo" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addMotivoInline();}">
+          <button type="button" class="btn sm" onclick="addMotivoInline()">+ Adicionar</button>
+        </div>
+        <div class="hint">O novo motivo fica salvo para os próximos pedidos.</div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" style="background:var(--st-reprovado);border-color:var(--st-reprovado)" onclick="confirmarReprovar(${id})">Confirmar reprovação</button></div>`);
+}
+async function addMotivoInline(){
+  const nm=val('rep_novo'); if(!nm){toast('Digite o motivo');return;}
+  if(!db.motivos.some(m=>(m.nome||'').toLowerCase()===nm.toLowerCase())){await store.insert('motivos',{nome:nm});await refresh();}
+  const sel=document.getElementById('rep_motivo'); if(sel)sel.innerHTML=motivoOpts(nm);
+  const nv=document.getElementById('rep_novo'); if(nv)nv.value='';
+  toast('Motivo cadastrado');
+}
+async function reprovar(id){
+  let motivo=val('rep_motivo');
+  const novo=val('rep_novo');
+  if(!motivo&&novo){motivo=novo;if(!db.motivos.some(m=>(m.nome||'').toLowerCase()===novo.toLowerCase())){await store.insert('motivos',{nome:novo});}}
+  if(!motivo){toast('Selecione ou cadastre um motivo');return;}
+  await store.update('lancamentos',id,{etapa:'reprovado',data_reprovacao:isoDay(new Date()),motivo_reprovacao:motivo});
+  await refresh();closeModal();render();toast('Pedido reprovado');
+}
+async function confirmarReprovar(id){return reprovar(id);}
+async function reativar(id){
+  await store.update('lancamentos',id,{etapa:'orcado',data_reprovacao:null,motivo_reprovacao:null});
+  await refresh();render();toast('Pedido reativado (Orçado)');
+}
+function viewReprovados(){
+  const anoOpts=yearsAvailable().map(y=>`<option value="${y}" ${+state.repAno===y?'selected':''}>${y}</option>`).join('');
+  const mesOpts=`<option value="todos" ${state.repMes==='todos'?'selected':''}>Ano inteiro</option>`+
+    MESES.map((nm,i)=>`<option value="${i+1}" ${(state.repMes!=='todos'&&+state.repMes===i+1)?'selected':''}>${nm}</option>`).join('');
+  const reprov=db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
+  const qtd=reprov.length, valor=reprov.reduce((a,l)=>a+(Number(l.valor)||0),0);
+  const cards=reprov.slice().sort((a,b)=>repDate(a)<repDate(b)?1:-1).map(l=>`<div class="card lanc" style="border-left-color:var(--st-reprovado)">
+      <div class="h"><div>
+        <div class="title">${esc(nome(db.tipos_servico,l.tipo_servico_id))}</div>
+        <div class="cli">${esc(nome(db.clientes,l.cliente_id))} · Técnico(s): ${esc(tecNomes(l))}</div>
+      </div><span class="badge" style="background:#FEE4E2;color:#B42318">Reprovado</span></div>
+      <div class="meta">
+        <span>📅 Abertura: <b>${brDate(l.data_abertura)}</b></span>
+        <span>✗ Reprovado em: <b>${brDate(l.data_reprovacao)}</b></span>
+        <span>📝 Motivo: <b>${esc(l.motivo_reprovacao)||'—'}</b></span>
+        ${l.valor?`<span>💰 Valor: <b>${brl(l.valor)}</b></span>`:''}
+      </div>
+      ${l.descricao?`<div class="desc">${esc(l.descricao)}</div>`:''}
+      <div class="acts">
+        <button class="btn sm" onclick="reativar(${l.id})">↩ Reativar (Orçado)</button>
+        <button class="btn sm" onclick="modalFollowup(${l.id})">💬 Follow-up</button>
+        <button class="btn sm danger" onclick="del('lancamentos',${l.id})">🗑</button>
+      </div></div>`).join('');
+  return `<div class="toolbar"><span style="font-weight:600">Período:</span>
+      <select style="width:auto" onchange="state.repMes=this.value;render()">${mesOpts}</select>
+      <select style="width:auto" onchange="state.repAno=+this.value;render()">${anoOpts}</select>
+    </div>
+    <div class="grid kpis" style="margin-bottom:18px">
+      <div class="card kpi"><div class="lbl">Pedidos reprovados</div><div class="val" style="color:var(--st-reprovado)">${qtd}</div></div>
+      <div class="card kpi"><div class="lbl">Valor de reprovação</div><div class="val" style="color:var(--st-reprovado)">${brl(valor)}</div></div>
+    </div>
+    <div class="card" style="padding:20px;margin-bottom:18px">
+      <h3 style="margin:0 0 4px">Pedidos reprovados por mês — ${state.repAno}</h3>
+      <div style="height:300px"><canvas id="chartRep"></canvas></div>
+    </div>
+    <div class="card" style="padding:20px;margin-bottom:18px">
+      <h3 style="margin:0 0 10px">Motivos das reprovações no período</h3>
+      <div style="height:300px"><canvas id="chartMotivos"></canvas></div>
+    </div>
+    ${qtd?cards:`<div class="card"><div class="empty"><div class="big">🚫</div>Nenhum pedido reprovado no período.</div></div>`}`;
+}
+function mountRepChart(){
+  const ctx=document.getElementById('chartRep');if(!ctx)return;
+  const qt=[];
+  for(let m=1;m<=12;m++){qt.push(db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,m)).length);}
+  charts.push(new Chart(ctx,{type:'bar',data:{labels:MESES_C,datasets:[
+    {label:'Qtd reprovados',data:qt,backgroundColor:'#DC2626',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Qtd: '+c.raw}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Qtd'},ticks:{precision:0}}}}}));
+}
+function mountMotivosChart(){
+  const ctx=document.getElementById('chartMotivos');if(!ctx)return;
+  const reprov=db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
+  const map={};
+  reprov.forEach(l=>{const m=l.motivo_reprovacao||'(sem motivo)';map[m]=(map[m]||0)+1;});
+  const labels=Object.keys(map), data=labels.map(k=>map[k]);
+  if(!labels.length){ctx.parentElement.innerHTML='<div class="empty" style="padding:20px"><div class="big">📝</div>Sem motivos para exibir no período.</div>';return;}
+  const cores=['#DC2626','#F2701A','#D97706','#7C3AED','#2563EB','#0891B2','#16A34A','#6B7280','#DB2777','#65A30D'];
+  charts.push(new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Pedidos',data,backgroundColor:labels.map((_,i)=>cores[i%cores.length]),borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Qtd: '+c.raw}}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0},title:{display:true,text:'Qtd de pedidos'}}}}}));
+}
+
+/* ============ CADASTROS ============ */
+function viewClientes(){
+  const rows=db.clientes.map(c=>`<tr><td><b>${esc(c.nome)}</b></td><td>${esc(c.contato)||'—'}</td>
+    <td>${esc(c.telefone)||'—'}</td><td>${esc(c.email)||'—'}</td>
+    <td style="text-align:right"><button class="btn sm" onclick="formCliente(${c.id})">Editar</button>
+    <button class="btn sm danger" onclick="del('clientes',${c.id})">Excluir</button></td></tr>`).join('');
+  return `<div style="margin-bottom:14px"><button class="btn primary" onclick="formCliente()">+ Novo cliente</button></div>
+    <div class="card">${db.clientes.length?`<table><thead><tr><th>Nome</th><th>Contato</th><th>Telefone</th><th>E-mail</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty"><div class="big">🏢</div>Nenhum cliente cadastrado.</div>'}</div>`;
+}
+function formCliente(id,fromForm){
+  const c=id?db.clientes.find(x=>x.id===id):{};
+  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} cliente</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="field"><label>Nome *</label><input id="f_nome" value="${esc(c.nome)}"></div>
+      <div class="row2"><div class="field"><label>Contato</label><input id="f_contato" value="${esc(c.contato)}"></div>
+      <div class="field"><label>Telefone</label><input id="f_telefone" value="${esc(c.telefone)}"></div></div>
+      <div class="field"><label>E-mail</label><input id="f_email" value="${esc(c.email)}"></div>
+      <div class="field"><label>Endereço</label><input id="f_endereco" value="${esc(c.endereco)}"></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="saveCliente(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
+}
+async function saveCliente(id,fromForm){
+  const o={nome:val('f_nome'),contato:val('f_contato'),telefone:val('f_telefone'),email:val('f_email'),endereco:val('f_endereco')};
+  if(!o.nome){toast('Informe o nome');return;}
+  const saved=await (id?store.update('clientes',id,o):store.insert('clientes',o));
+  await refresh();
+  if(fromForm){refillSelect('l_cli',db.clientes,saved.id);closeModal();toast('Cliente salvo');}
+  else{closeModal();render();toast('Cliente salvo');}
+}
+
+function viewTecnicos(){
+  const rows=db.tecnicos.map(t=>`<tr><td><b>${esc(t.nome)}</b></td>
+    <td>${num(t.horas_previstas_mes)} h</td><td>${brl(t.salario_total)}</td>
+    <td><b style="color:var(--brand)">${brl(t.custo_hora)}</b></td>
+    <td style="text-align:right"><button class="btn sm" onclick="formTecnico(${t.id})">Editar</button>
+    <button class="btn sm danger" onclick="del('tecnicos',${t.id})">Excluir</button></td></tr>`).join('');
+  return `<div style="margin-bottom:14px"><button class="btn primary" onclick="formTecnico()">+ Novo técnico</button></div>
+    <div class="card">${db.tecnicos.length?`<table><thead><tr><th>Nome</th><th>Horas previstas/mês</th><th>Salário total</th><th>Custo/hora</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty"><div class="big">🧰</div>Nenhum técnico cadastrado.</div>'}</div>`;
+}
+function formTecnico(id,fromForm){
+  const t=id?db.tecnicos.find(x=>x.id===id):{};
+  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} técnico</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="field"><label>Nome *</label><input id="f_nome" value="${esc(t.nome)}"></div>
+      <div class="row2">
+        <div class="field"><label>Horas previstas no mês</label><input id="f_horas" type="number" step="0.5" value="${t.horas_previstas_mes||''}" oninput="recalcCusto()"></div>
+        <div class="field"><label>Salário total (R$)</label><input id="f_salario" type="number" step="0.01" value="${t.salario_total||''}" oninput="recalcCusto()"></div>
+      </div>
+      <div class="field"><label>Custo por hora (R$)</label><input id="f_custo" type="number" step="0.01" value="${t.custo_hora||''}">
+        <div class="hint">Calculado automaticamente (salário ÷ horas previstas). Você pode ajustar manualmente.</div></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="saveTecnico(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
+}
+function recalcCusto(){const h=Number(val('f_horas')),s=Number(val('f_salario'));
+  if(h>0&&s>0)document.getElementById('f_custo').value=(s/h).toFixed(2);}
+async function saveTecnico(id,fromForm){
+  const h=Number(val('f_horas'))||0,s=Number(val('f_salario'))||0;
+  let custo=Number(val('f_custo'));if(!custo&&h>0)custo=+(s/h).toFixed(2);
+  const o={nome:val('f_nome'),horas_previstas_mes:h,salario_total:s,custo_hora:custo||0};
+  if(!o.nome){toast('Informe o nome');return;}
+  const saved=await (id?store.update('tecnicos',id,o):store.insert('tecnicos',o));
+  await refresh();
+  if(fromForm){addTecRow(saved.id);recalcValor();closeModal();toast('Técnico salvo');}
+  else{closeModal();render();toast('Técnico salvo');}
+}
+
+function viewTipos(){
+  const rows=db.tipos_servico.map(t=>`<tr><td><b>${esc(t.nome)}</b></td><td>${esc(t.descricao)||'—'}</td>
+    <td style="text-align:right"><button class="btn sm" onclick="formTipo(${t.id})">Editar</button>
+    <button class="btn sm danger" onclick="del('tipos_servico',${t.id})">Excluir</button></td></tr>`).join('');
+  return `<div style="margin-bottom:14px"><button class="btn primary" onclick="formTipo()">+ Novo tipo</button></div>
+    <div class="card">${db.tipos_servico.length?`<table><thead><tr><th>Nome</th><th>Descrição</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty"><div class="big">🛠️</div>Nenhum tipo de serviço cadastrado.</div>'}</div>`;
+}
+function formTipo(id,fromForm){
+  const t=id?db.tipos_servico.find(x=>x.id===id):{};
+  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} tipo de serviço</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb"><div class="field"><label>Nome *</label><input id="f_nome" value="${esc(t.nome)}"></div>
+    <div class="field"><label>Descrição</label><textarea id="f_desc">${esc(t.descricao)}</textarea></div></div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="saveTipo(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
+}
+async function saveTipo(id,fromForm){
+  const o={nome:val('f_nome'),descricao:val('f_desc')};
+  if(!o.nome){toast('Informe o nome');return;}
+  const saved=await (id?store.update('tipos_servico',id,o):store.insert('tipos_servico',o));
+  await refresh();
+  if(fromForm){refillSelect('l_tipo',db.tipos_servico,saved.id);closeModal();toast('Tipo salvo');}
+  else{closeModal();render();toast('Tipo salvo');}
+}
+
+/* ============ FORM LANÇAMENTO ============ */
+function optList(arr,sel){return '<option value="">Selecione…</option>'+arr.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.nome)}</option>`).join('');}
+function viewForm(){
+  const l=editingId?db.lancamentos.find(x=>x.id===editingId):{data_abertura:isoDay(new Date()),local_trabalho:'interno',etapa:'orcado'};
+  const aviso=(!db.clientes.length||!db.tecnicos.length||!db.tipos_servico.length)?'<div class="banner">Você pode cadastrar cliente, técnico e tipo de serviço direto aqui pelos botões “+”.</div>':'';
+  return aviso+`<div class="card" style="max-width:760px;padding:24px">
+    <div class="row2">
+      <div class="field"><label>Cliente * <button type="button" class="mini-add" onclick="formCliente(null,true)">+ novo</button></label><select id="l_cli">${optList(db.clientes,l.cliente_id)}</select></div>
+      <div class="field"><label>Tipo de serviço * <button type="button" class="mini-add" onclick="formTipo(null,true)">+ novo</button></label><select id="l_tipo">${optList(db.tipos_servico,l.tipo_servico_id)}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Local do trabalho</label><select id="l_local">
+        <option value="interno" ${l.local_trabalho==='interno'?'selected':''}>Interno</option>
+        <option value="externo" ${l.local_trabalho==='externo'?'selected':''}>Externo</option></select></div>
+      <div class="field"><label>Técnico(s) * <button type="button" class="mini-add" onclick="formTecnico(null,true)">+ cadastrar</button></label>
+        <div id="l_tecs"></div>
+        <button type="button" class="btn sm" style="margin-top:2px" onclick="addTecRow()">+ adicionar técnico</button>
+      </div>
+    </div>
+    <div class="row3">
+      <div class="field"><label>Data de abertura</label><input id="l_dab" type="date" value="${l.data_abertura||''}"></div>
+      <div class="field"><label>Data de execução</label><input id="l_dex" type="date" value="${l.data_execucao||''}"></div>
+      <div class="field"><label>Data de finalização</label><input id="l_dfi" type="date" value="${l.data_finalizacao||''}"></div>
+    </div>
+    <div class="row3">
+      <div class="field"><label>Hora início</label><input id="l_hi" type="time" value="${l.hora_inicio||''}" onchange="recalcValor()"></div>
+      <div class="field"><label>Hora fim</label><input id="l_hf" type="time" value="${l.hora_fim||''}" onchange="recalcValor()"></div>
+      <div class="field"><label>Valor de cobrança (R$)</label>
+        <div id="l_valor_calc" class="valor-box">R$ 0,00</div>
+        <input type="hidden" id="l_valor" value="${l.valor||0}">
+        <div class="hint">Total de horas × soma do custo/hora dos técnicos.</div>
+      </div>
+    </div>
+    <div class="field"><label>Etapa</label><select id="l_etapa">${ETAPAS.map(e=>`<option value="${e.key}" ${l.etapa===e.key?'selected':''}>${e.label}</option>`).join('')}</select></div>
+    <div class="field"><label>Descrição do serviço</label><textarea id="l_desc">${esc(l.descricao)}</textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+      ${editingId?'<button class="btn" onclick="editingId=null;go(\'pipe:\'+db.lancamentos.find(x=>x.id==='+editingId+').etapa)">Cancelar</button>':''}
+      <button class="btn primary" onclick="saveLanc(${editingId||'null'})">${editingId?'Salvar alterações':'Criar lançamento'}</button>
+    </div>
+  </div>`;
+}
+async function saveLanc(id){
+  const ids=getTecIds();
+  const horas=calcHoras(val('l_hi'),val('l_hf'));
+  const somaCusto=ids.reduce((a,tid)=>{const t=tecById(tid);return a+(t?Number(t.custo_hora)||0:0);},0);
+  const o={
+    cliente_id:Number(val('l_cli'))||null,tecnico_id:ids[0]||null,tecnico_ids:ids,tipo_servico_id:Number(val('l_tipo'))||null,
+    local_trabalho:val('l_local'),data_abertura:val('l_dab')||null,data_execucao:val('l_dex')||null,data_finalizacao:val('l_dfi')||null,
+    hora_inicio:val('l_hi')||null,hora_fim:val('l_hf')||null,valor:+(horas*somaCusto).toFixed(2),etapa:val('l_etapa'),descricao:val('l_desc')};
+  if(!o.cliente_id||!ids.length||!o.tipo_servico_id){toast('Cliente, técnico e tipo são obrigatórios');return;}
+  const saved=await (id?store.update('lancamentos',id,o):store.insert('lancamentos',o));
+  editingId=null;await refresh();go('pipe:'+saved.etapa);toast('Lançamento salvo');
+}
+
+/* ============ PIPELINE ============ */
+function isoWeek(d){
+  const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const dn=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-dn+3);
+  const firstTh=dt.getTime(); dt.setUTCMonth(0,1);
+  if(dt.getUTCDay()!==4) dt.setUTCMonth(0,1+((4-dt.getUTCDay())+7)%7);
+  return 1+Math.round((firstTh-dt.getTime())/(7*864e5));
+}
+function mondayOfISOWeek(week,year){
+  const simple=new Date(Date.UTC(year,0,1+(week-1)*7));
+  const dow=simple.getUTCDay(), monday=new Date(simple);
+  if(dow<=4) monday.setUTCDate(simple.getUTCDate()-((dow+6)%7));
+  else monday.setUTCDate(simple.getUTCDate()+(8-dow));
+  return new Date(monday.getUTCFullYear(),monday.getUTCMonth(),monday.getUTCDate());
+}
+function weekBar(){
+  const ws=state.weekStart, we=addDays(ws,6), wn=isoWeek(ws);
+  const rng=`${('0'+ws.getDate()).slice(-2)}/${('0'+(ws.getMonth()+1)).slice(-2)} – ${('0'+we.getDate()).slice(-2)}/${('0'+(we.getMonth()+1)).slice(-2)}`;
+  return `<div class="toolbar">
+      <label class="switch"><input type="checkbox" style="width:auto" ${state.wkFilterOn?'checked':''} onchange="state.wkFilterOn=this.checked;render()"> Filtrar por semana</label>
+      <div class="wk-nav" style="${state.wkFilterOn?'':'opacity:.45;pointer-events:none'}">
+        <button class="btn" onclick="shiftWeek(-1)">◀</button>
+        <span>Semana Nº</span>
+        <input type="number" min="1" max="53" value="${wn}" style="width:66px;text-align:center" title="Ir para o número da semana" onchange="gotoWeek(this.value)">
+        <button class="btn" onclick="shiftWeek(1)">▶</button>
+        <span style="color:var(--muted)">${rng}</span>
+        <button class="btn sm" onclick="state.weekStart=startOfWeek(new Date());render()">Hoje</button>
+      </div>
+      <span style="color:var(--muted)">Data base:</span>
+      <select style="width:auto" onchange="state.wkField=this.value;render()">
+        <option value="data_abertura" ${state.wkField==='data_abertura'?'selected':''}>Abertura</option>
+        <option value="data_execucao" ${state.wkField==='data_execucao'?'selected':''}>Execução</option>
+        <option value="data_finalizacao" ${state.wkField==='data_finalizacao'?'selected':''}>Finalização</option>
+      </select>
+    </div>`;
+}
+function gotoWeek(n){n=parseInt(n,10);if(!n)return;state.weekStart=mondayOfISOWeek(n,state.weekStart.getFullYear());render();}
+function shiftWeek(n){state.weekStart=addDays(state.weekStart,n*7);render();}
+function inWeek(l){const d=l[state.wkField];if(!d)return false;const dt=new Date(d.slice(0,10)+'T00:00:00');return dt>=state.weekStart&&dt<addDays(state.weekStart,7);}
+function lancCard(l){
+  const idx=ETAPAS.findIndex(e=>e.key===l.etapa), etapa=ETAPAS[idx];
+  const fu=db.followups.filter(f=>f.lancamento_id===l.id).length;
+  const h=horasLanc(l);
+  const prox=idx<ETAPAS.length-1?ETAPAS[idx+1]:null;
+  const ant=idx>0?ETAPAS[idx-1]:null;
+  return `<div class="card lanc" style="border-left-color:${etapa.color}">
+      <div class="h"><div>
+        <div class="title">${esc(nome(db.tipos_servico,l.tipo_servico_id))}</div>
+        <div class="cli">${esc(nome(db.clientes,l.cliente_id))} · Técnico(s): ${esc(tecNomes(l))}</div>
+      </div><span class="badge ${l.local_trabalho}">${l.local_trabalho==='interno'?'Interno':'Externo'}</span></div>
+      <div class="meta">
+        <span>📅 Abertura: <b>${brDate(l.data_abertura)}</b></span>
+        <span>🔧 Execução: <b>${brDate(l.data_execucao)}</b></span>
+        <span>✅ Finalização: <b>${brDate(l.data_finalizacao)}</b></span>
+        ${l.data_finalizacao&&l.data_abertura?`<span>⏳ Lead time: <b>${leadTime(l)} dia(s)</b></span>`:(l.data_abertura?`<span>⏳ Em aberto: <b>${diasEmAberto(l)} dia(s)</b></span>`:'')}
+        ${l.hora_inicio?`<span>⏱️ <b>${l.hora_inicio}–${l.hora_fim||'?'}</b> (${num(h)} h)</span>`:''}
+        ${l.valor?`<span>💰 <b>${brl(l.valor)}</b></span>`:''}
+      </div>
+      ${l.descricao?`<div class="desc">${esc(l.descricao)}</div>`:''}
+      <div class="acts">
+        ${ant?`<button class="btn sm" onclick="voltar(${l.id})">← ${ant.label}</button>`:''}
+        ${prox?`<button class="btn sm primary" onclick="avancar(${l.id})">${prox.label} →</button>`:'<span class="badge" style="background:#DCFCE7;color:#166534">Concluído</span>'}
+        ${l.etapa==='orcado'?`<button class="btn sm primary" style="background:var(--st-aprovado);border-color:var(--st-aprovado)" onclick="aprovarDireto(${l.id})">✓ Aprovar direto →</button>`:''}
+        ${(l.etapa==='orcado'||l.etapa==='aguardando_cliente')?`<button class="btn sm" style="border-color:#FDA29B;color:#B42318" onclick="modalReprovar(${l.id})">✗ Reprovar</button>`:''}
+        <button class="btn sm" onclick="modalFollowup(${l.id})">💬 Follow-up${fu?' ('+fu+')':''}</button>
+        <button class="btn sm" onclick="editingId=${l.id};go('novo')">✎ Editar</button>
+        <button class="btn sm danger" onclick="del('lancamentos',${l.id})">🗑</button>
+      </div></div>`;
+}
+function viewPipeline(etapa){
+  const all=db.lancamentos.filter(l=>l.etapa===etapa.key);
+  const shown=state.wkFilterOn?all.filter(inWeek):all;
+  const empty=`<div class="card"><div class="empty"><div class="big">📭</div>Nenhum serviço nesta etapa${state.wkFilterOn?' na semana selecionada':''}.</div></div>`;
+  let body='';
+  if(!state.wkFilterOn){
+    body=shown.length?shown.map(lancCard).join(''):empty;
+  }else{
+    let any=false;
+    for(let i=0;i<7;i++){
+      const dd=addDays(state.weekStart,i);
+      const items=all.filter(l=>{const d=l[state.wkField];if(!d)return false;return sameDay(new Date(d.slice(0,10)+'T00:00:00'),dd);});
+      if(!items.length)continue; any=true;
+      body+=`<div class="day-group"><div class="day-head">${DIAS[i]} <small>${('0'+dd.getDate()).slice(-2)}/${('0'+(dd.getMonth()+1)).slice(-2)}</small><span class="cnt2">${items.length}</span></div>${items.map(lancCard).join('')}</div>`;
+    }
+    if(!any)body=empty;
+  }
+  return `<div class="stage-title"><span class="dot" style="background:${etapa.color}"></span><h3 style="margin:0">${etapa.label}</h3>
+      <span class="cnt" style="background:#F2F4F7;color:#344054;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600">${shown.length}</span></div>
+    <div class="hint" style="margin-bottom:16px">Use ← / → para mover o serviço entre as etapas.</div>
+    ${weekBar()}
+    ${body}`;
+}
+async function avancar(id){const l=db.lancamentos.find(x=>x.id===id);const i=ETAPAS.findIndex(e=>e.key===l.etapa);
+  if(i<ETAPAS.length-1){const nx=ETAPAS[i+1];await store.update('lancamentos',id,{etapa:nx.key});await refresh();render();toast('Movido para: '+nx.label);}}
+async function voltar(id){const l=db.lancamentos.find(x=>x.id===id);const i=ETAPAS.findIndex(e=>e.key===l.etapa);
+  if(i>0){const pv=ETAPAS[i-1];await store.update('lancamentos',id,{etapa:pv.key});await refresh();render();toast('Voltou para: '+pv.label);}}
+
+/* ============ FOLLOW-UPS ============ */
+function modalFollowup(id){
+  const l=db.lancamentos.find(x=>x.id===id);
+  const et=ETAPAS.find(e=>e.key===l.etapa);
+  const fus=db.followups.filter(f=>f.lancamento_id===id).sort((a,b)=>a.created_at<b.created_at?1:-1);
+  const list=fus.length?fus.map(f=>{const fe=ETAPAS.find(e=>e.key===f.etapa);
+    return `<div class="fu"><div class="fh"><span class="ftag">${fe?fe.label:f.etapa}</span>
+      <span>${new Date(f.created_at).toLocaleString('pt-BR')}</span></div><div>${esc(f.texto)}</div></div>`;}).join(''):'<div class="hint">Nenhum follow-up ainda.</div>';
+  openModal(`<div class="mh"><h3>Follow-ups</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="hint" style="margin-bottom:12px">${esc(nome(db.clientes,l.cliente_id))} · ${esc(nome(db.tipos_servico,l.tipo_servico_id))} · etapa atual: <b>${et.label}</b></div>
+      <div class="field"><textarea id="fu_txt" placeholder="Registrar acompanhamento nesta etapa…"></textarea></div>
+      <div style="text-align:right;margin-bottom:16px"><button class="btn primary sm" onclick="addFollowup(${id})">+ Adicionar follow-up</button></div>
+      <div style="max-height:300px;overflow-y:auto">${list}</div>
+    </div>`);
+}
+async function addFollowup(id){
+  const txt=val('fu_txt');if(!txt){toast('Escreva o follow-up');return;}
+  const l=db.lancamentos.find(x=>x.id===id);
+  await store.insert('followups',{lancamento_id:id,etapa:l.etapa,texto:txt});
+  await refresh();modalFollowup(id);render();toast('Follow-up registrado');
+}
+
+/* ============ FORM: extras (técnicos múltiplos + valor) ============ */
+function refillSelect(id,arr,sel){const s=document.getElementById(id);if(s)s.innerHTML=optList(arr,sel);}
+function initLancForm(){
+  if(!document.getElementById('l_tecs'))return;
+  const l=editingId?db.lancamentos.find(x=>x.id===editingId):null;
+  let ids=[];
+  if(l){ids=Array.isArray(l.tecnico_ids)&&l.tecnico_ids.length?l.tecnico_ids.slice():(l.tecnico_id?[l.tecnico_id]:[]);}
+  if(!ids.length)ids=[null];
+  document.getElementById('l_tecs').innerHTML='';
+  ids.forEach(id=>addTecRow(id));
+  recalcValor();
+}
+function addTecRow(sel){
+  const box=document.getElementById('l_tecs');if(!box)return;
+  const selId=(typeof sel==='number')?sel:null;
+  const row=document.createElement('div');row.className='tec-row';
+  row.innerHTML='<select class="l_tec" onchange="recalcValor()">'+optList(db.tecnicos,selId)+'</select>'+
+    '<button type="button" class="btn sm danger" title="Remover técnico" onclick="this.parentNode.remove();recalcValor()">✕</button>';
+  box.appendChild(row);
+  recalcValor();
+}
+function getTecIds(){return [...document.querySelectorAll('.l_tec')].map(s=>Number(s.value)).filter(Boolean);}
+function recalcValor(){
+  const horas=calcHoras(val('l_hi'),val('l_hf'));
+  const somaCusto=getTecIds().reduce((a,id)=>{const t=tecById(id);return a+(t?Number(t.custo_hora)||0:0);},0);
+  const valor=horas*somaCusto;
+  const out=document.getElementById('l_valor_calc');
+  if(out)out.innerHTML=brl(valor)+` <span style="font-weight:500;color:var(--muted);font-size:12px">( ${num(horas)} h × ${brl(somaCusto)}/h )</span>`;
+  const hid=document.getElementById('l_valor');if(hid)hid.value=valor.toFixed(2);
+}
+
+/* ============ PERMISSÕES ============ */
+const MODULES=[
+  {key:'dashboard',label:'Dashboard'},
+  {key:'novo',label:'Novo Lançamento'},
+  {key:'fluxo',label:'Fluxo de Serviços'},
+  {key:'reprovados',label:'Reprovados'},
+  {key:'clientes',label:'Clientes'},
+  {key:'tecnicos',label:'Técnicos'},
+  {key:'tipos',label:'Tipos de Serviço'},
+  {key:'metas',label:'Metas'},
+  {key:'usuarios',label:'Usuários e Permissões'}
+];
+const ADMIN_EMAIL='fkcap2026@gmail.com';
+const PERFIS={
+  admin:null,
+  tecnico:{dashboard:1,novo:1,fluxo:1,clientes:1,tipos:1},
+  visualizador:{dashboard:1,fluxo:1},
+  personalizado:{}
+};
+function perfilLabel(p){return {admin:'Administrador',tecnico:'Técnico',visualizador:'Visualizador',personalizado:'Personalizado'}[p]||p||'—';}
+function currentUserRow(){const em=((session&&session.user&&session.user.email)||'').toLowerCase();
+  return db.usuarios.find(u=>(u.email||'').toLowerCase()===em)||null;}
+function isAdmin(){
+  const em=((session&&session.user&&session.user.email)||'').toLowerCase();
+  if(em===ADMIN_EMAIL)return true;
+  if(!db.usuarios.length)return true;
+  const u=currentUserRow();return u?u.perfil==='admin':false;
+}
+function can(mod){
+  if(isAdmin())return true;
+  const u=currentUserRow();
+  if(!u||u.ativo===false)return false;
+  return !!(u.permissoes||{})[mod];
+}
+function allowedView(v){
+  if(v==='dashboard')return can('dashboard');
+  if(v==='novo')return can('novo');
+  if(v==='clientes')return can('clientes');
+  if(v==='tecnicos')return can('tecnicos');
+  if(v==='tipos')return can('tipos');
+  if(v==='usuarios')return can('usuarios');
+  if(v==='metas')return can('metas');
+  if(v==='reprovados')return can('reprovados');
+  if(v.startsWith('pipe:'))return can('fluxo');
+  return true;
+}
+function firstAllowed(){return ['dashboard','novo','pipe:orcado','reprovados','clientes','tecnicos','tipos','metas','usuarios'].find(allowedView)||'dashboard';}
+
+function viewUsuarios(){
+  const rows=db.usuarios.map(u=>{
+    const libs=MODULES.filter(m=>(u.permissoes||{})[m.key]).map(m=>m.label).join(', ')||'—';
+    return `<tr><td><b>${esc(u.nome)||'—'}</b><div class="cli">${esc(u.email)}</div></td>
+      <td>${esc(perfilLabel(u.perfil))}</td>
+      <td>${u.ativo===false?'<span class="badge" style="background:#FEE4E2;color:#B42318">Inativo</span>':'<span class="badge" style="background:#DCFCE7;color:#166534">Ativo</span>'}</td>
+      <td style="font-size:12px;color:#475467;max-width:280px">${esc(u.perfil==='admin'?'Acesso total':libs)}</td>
+      <td style="text-align:right"><button class="btn sm" onclick="formUsuario(${u.id})">Editar</button>
+      <button class="btn sm danger" onclick="del('usuarios',${u.id})">Excluir</button></td></tr>`;}).join('');
+  return `<div class="banner">Controle quem acessa o sistema e o que cada pessoa pode ver. O login continua sendo validado pelo Supabase Auth — aqui você define as permissões de cada e-mail.</div>
+    <div style="margin-bottom:14px"><button class="btn primary" onclick="formUsuario()">+ Novo usuário</button></div>
+    <div class="card">${db.usuarios.length?`<table><thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th>Acessos liberados</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty"><div class="big">🔐</div>Nenhum usuário configurado. Enquanto a lista estiver vazia, qualquer login entra como administrador.</div>'}</div>`;
+}
+function formUsuario(id){
+  const u=id?db.usuarios.find(x=>x.id===id):{perfil:'personalizado',permissoes:{},ativo:true};
+  const perms=u.permissoes||{};
+  const checks=MODULES.map(m=>`<label class="perm-chk"><input type="checkbox" class="u_perm" data-k="${m.key}" ${perms[m.key]?'checked':''} ${u.perfil==='admin'?'checked disabled':''}> ${m.label}</label>`).join('');
+  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} usuário</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">
+      <div class="row2">
+        <div class="field"><label>Nome</label><input id="u_nome" value="${esc(u.nome)}"></div>
+        <div class="field"><label>E-mail (login) *</label><input id="u_email" type="email" value="${esc(u.email)}" ${id?'readonly':''} placeholder="pessoa@empresa.com"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Perfil</label><select id="u_perfil" onchange="onPerfilChange()">
+          <option value="admin" ${u.perfil==='admin'?'selected':''}>Administrador (acesso total)</option>
+          <option value="tecnico" ${u.perfil==='tecnico'?'selected':''}>Técnico</option>
+          <option value="visualizador" ${u.perfil==='visualizador'?'selected':''}>Visualizador</option>
+          <option value="personalizado" ${u.perfil==='personalizado'?'selected':''}>Personalizado</option>
+        </select></div>
+        <div class="field"><label>Status</label><select id="u_ativo">
+          <option value="1" ${u.ativo!==false?'selected':''}>Ativo</option>
+          <option value="0" ${u.ativo===false?'selected':''}>Inativo</option>
+        </select></div>
+      </div>
+      <div class="field"><label>Acessos liberados</label><div class="perm-grid">${checks}</div></div>
+      <div class="hint">O e-mail precisa estar cadastrado no Supabase Auth para conseguir entrar.</div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="saveUsuario(${id||'null'})">Salvar</button></div>`);
+}
+function applyPerfil(perfil){
+  const chks=[...document.querySelectorAll('.u_perm')];
+  if(perfil==='admin'){chks.forEach(c=>{c.checked=true;c.disabled=true;});return;}
+  chks.forEach(c=>c.disabled=false);
+  if(perfil==='personalizado')return;
+  const preset=PERFIS[perfil]||{};
+  chks.forEach(c=>{c.checked=!!preset[c.dataset.k];});
+}
+function onPerfilChange(){applyPerfil(val('u_perfil'));}
+async function saveUsuario(id){
+  const email=val('u_email').toLowerCase();
+  if(!email){toast('Informe o e-mail');return;}
+  const perfil=val('u_perfil');
+  const permissoes={};
+  if(perfil==='admin'){MODULES.forEach(m=>permissoes[m.key]=true);}
+  else{[...document.querySelectorAll('.u_perm')].forEach(c=>{permissoes[c.dataset.k]=c.checked;});}
+  const o={email,nome:val('u_nome'),perfil,ativo:val('u_ativo')==='1',permissoes};
+  await (id?store.update('usuarios',id,o):store.insert('usuarios',o));
+  await refresh();closeModal();render();toast('Usuário salvo');
+}
+
+/* ============ GENÉRICOS ============ */
+function val(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+async function del(tabela,id){
+  if(!confirm('Confirma a exclusão? Esta ação não pode ser desfeita.'))return;
+  await store.remove(tabela,id);await refresh();render();toast('Excluído');
+}
+async function refresh(){
+  const [c,t,ts,l,f,u,m,mo]=await Promise.all(TABLES.map(x=>store.list(x)));
+  db.clientes=c;db.tecnicos=t;db.tipos_servico=ts;db.lancamentos=l;db.followups=f;db.usuarios=u||[];db.metas=m||[];db.motivos=mo||[];
+}
+
+/* ============ INIT / LOGIN ============ */
+window.go=go;window.closeModal=closeModal;window.doLogin=doLogin;window.doLogout=doLogout;
+function togglePw(){const p=document.getElementById('lg_pass'),e=document.getElementById('lg_eye');if(!p)return;if(p.type==='password'){p.type='text';if(e)e.textContent='🙈';}else{p.type='password';if(e)e.textContent='👁';}}
+async function doLogin(){
+  const email=val('lg_email'),pass=(document.getElementById('lg_pass')||{}).value||'';
+  const rem=!!(document.getElementById('lg_remember')&&document.getElementById('lg_remember').checked);
+  const btn=document.getElementById('lg_btn'),err=document.getElementById('lg_err');
+  if(!email||!pass){err.textContent='Informe e-mail e senha';return;}
+  err.textContent='';btn.disabled=true;btn.textContent='Entrando…';
+  try{await apiLogin(email,pass);
+    try{if(rem)localStorage.setItem(REMEMBER_KEY,JSON.stringify({email,pw:btoa(unescape(encodeURIComponent(pass)))}));else localStorage.removeItem(REMEMBER_KEY);}catch(_){}
+    await enterApp();}
+  catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Entrar';}
+}
+function doLogout(){clearSession();document.getElementById('app').style.display='none';renderLogin();}
+function renderLogin(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('login').style.display='flex';
+  document.getElementById('lg_mode').textContent=useLocal?'Modo local — qualquer e-mail/senha entra para teste':'';
+  try{const r=JSON.parse(localStorage.getItem(REMEMBER_KEY)||'null');
+    if(r){const em=document.getElementById('lg_email'),pw=document.getElementById('lg_pass'),cb=document.getElementById('lg_remember');
+      if(em)em.value=r.email||'';
+      if(pw&&r.pw)pw.value=decodeURIComponent(escape(atob(r.pw)));
+      if(cb)cb.checked=true;}}catch(_){}
+  const em=document.getElementById('lg_email');if(em&&!em.value)em.focus();
+}
+async function enterApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='flex';
+  try{await refresh();}catch(e){toast('Erro ao carregar dados');console.error(e);}
+  render();
+}
+async function seedDemoIfEmpty(){
+  try{
+    if((await store.list('clientes')).length) return;
+    const ws=startOfWeek(new Date());
+    const D=i=>isoDay(addDays(ws,i));
+    const cli=[];
+    for(const n of [
+      {nome:'Mercado São Jorge',contato:'Sr. Antônio',telefone:'(47) 3222-1010',email:'compras@saojorge.com',endereco:'Rua das Palmeiras, 120'},
+      {nome:'Clínica Vida',contato:'Dra. Helena',telefone:'(47) 3222-2020',email:'ti@clinicavida.com',endereco:'Av. Central, 900'},
+      {nome:'Escritório Contábil Prado',contato:'Marcos Prado',telefone:'(47) 3222-3030',email:'contato@contabilprado.com',endereco:'Rua XV, 45'}
+    ]) cli.push(await store.insert('clientes',n));
+    const tec=[];
+    for(const t of [
+      {nome:'Bruno Almeida',horas_previstas_mes:176,salario_total:4576,custo_hora:26},
+      {nome:'Carla Menezes',horas_previstas_mes:160,salario_total:3520,custo_hora:22},
+      {nome:'Diego Ferraz',horas_previstas_mes:176,salario_total:4840,custo_hora:27.5}
+    ]) tec.push(await store.insert('tecnicos',t));
+    const tip=[];
+    for(const s of [
+      {nome:'Instalação de rede',descricao:'Cabeamento e configuração de switches/roteadores'},
+      {nome:'Suporte remoto',descricao:'Atendimento via acesso remoto'},
+      {nome:'Manutenção de servidor',descricao:'Manutenção preventiva e corretiva'},
+      {nome:'Formatação e backup',descricao:'Reinstalação de SO e cópia de segurança'},
+      {nome:'Configuração de firewall',descricao:'Regras de segurança e VPN'}
+    ]) tip.push(await store.insert('tipos_servico',s));
+    const L=o=>store.insert('lancamentos',o);
+    await L({cliente_id:cli[0].id,tecnico_id:tec[0].id,tipo_servico_id:tip[0].id,local_trabalho:'externo',data_abertura:D(0),valor:1200,etapa:'orcado',descricao:'Instalar 8 pontos de rede na área administrativa.'});
+    await L({cliente_id:cli[1].id,tecnico_id:tec[1].id,tipo_servico_id:tip[1].id,local_trabalho:'interno',data_abertura:D(1),valor:300,etapa:'aguardando_cliente',descricao:'Orçamento enviado ao cliente, aguardando retorno.'});
+    await L({cliente_id:cli[2].id,tecnico_id:tec[2].id,tipo_servico_id:tip[4].id,local_trabalho:'externo',data_abertura:D(0),data_execucao:D(2),hora_inicio:'08:00',hora_fim:'11:30',valor:900,etapa:'aprovado',descricao:'Configurar firewall e VPN para acesso externo.'});
+    const l4=await L({cliente_id:cli[0].id,tecnico_id:tec[0].id,tecnico_ids:[tec[0].id,tec[2].id],tipo_servico_id:tip[2].id,local_trabalho:'externo',data_abertura:D(1),data_execucao:D(3),hora_inicio:'10:00',hora_fim:'12:00',valor:2500,etapa:'aguardando_compras',descricao:'Aguardando 2 HDs. Dois técnicos alocados (Bruno + Diego).'});
+    const l5=await L({cliente_id:cli[1].id,tecnico_id:tec[1].id,tipo_servico_id:tip[3].id,local_trabalho:'interno',data_abertura:D(0),data_execucao:D(2),hora_inicio:'14:00',hora_fim:'17:00',valor:450,etapa:'em_execucao',descricao:'Formatar 3 estações e restaurar backup.'});
+    await L({cliente_id:cli[2].id,tecnico_id:tec[2].id,tipo_servico_id:tip[1].id,local_trabalho:'externo',data_abertura:D(2),data_execucao:D(3),hora_inicio:'09:00',hora_fim:'12:15',valor:500,etapa:'em_execucao',descricao:'Suporte a impressora de rede.'});
+    const l7=await L({cliente_id:cli[0].id,tecnico_id:tec[0].id,tipo_servico_id:tip[0].id,local_trabalho:'externo',data_abertura:D(0),data_execucao:D(1),data_finalizacao:D(2),hora_inicio:'08:00',hora_fim:'16:00',valor:3200,etapa:'cobranca',descricao:'Instalação de rede concluída, emitir NF.'});
+    await L({cliente_id:cli[1].id,tecnico_id:tec[1].id,tipo_servico_id:tip[2].id,local_trabalho:'interno',data_abertura:D(0),data_execucao:D(0),data_finalizacao:D(1),hora_inicio:'13:00',hora_fim:'18:00',valor:1500,etapa:'finalizado',descricao:'Manutenção preventiva do servidor.'});
+    await L({cliente_id:cli[2].id,tecnico_id:tec[2].id,tipo_servico_id:tip[3].id,local_trabalho:'externo',data_abertura:D(1),data_execucao:D(2),data_finalizacao:D(3),hora_inicio:'09:00',hora_fim:'12:00',valor:600,etapa:'finalizado',descricao:'Formatação de notebook da diretoria.'});
+    await store.insert('followups',{lancamento_id:l4.id,etapa:'aguardando_compras',texto:'Peças cotadas em 2 fornecedores, aguardando aprovação da compra.'});
+    await store.insert('followups',{lancamento_id:l5.id,etapa:'em_execucao',texto:'2 de 3 estações concluídas.'});
+    await store.insert('followups',{lancamento_id:l7.id,etapa:'cobranca',texto:'Cliente confirmou recebimento, boleto enviado.'});
+    await L({cliente_id:cli[2].id,tecnico_id:tec[1].id,tipo_servico_id:tip[0].id,local_trabalho:'externo',data_abertura:D(-5),data_reprovacao:D(-2),valor:1800,etapa:'reprovado',motivo_reprovacao:'Optou por outro fornecedor',descricao:'Cliente optou por outro fornecedor.'});
+    const _ay=new Date().getFullYear(), _am=new Date().getMonth()+1;
+    await store.insert('metas',{ano:_ay,mes:_am,meta_horas:160});
+    if(_am>1)await store.insert('metas',{ano:_ay,mes:_am-1,meta_horas:150});
+    for(const _mn of ['Preço acima do orçado','Cliente desistiu','Optou por outro fornecedor','Fora do escopo'])await store.insert('motivos',{nome:_mn});
+  }catch(e){console.error('seed',e);}
+}
+(async function boot(){
+  loadSession();
+  if(useLocal) await seedDemoIfEmpty();
+  if(session){try{await enterApp();}catch(e){clearSession();renderLogin();}}
+  else{renderLogin();}
+})();
+</script>
+</body>
+</html>
