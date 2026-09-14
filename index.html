@@ -1005,6 +1005,10 @@ async function refresh(){
 
 /* ============ INIT / LOGIN ============ */
 window.go=go;window.closeModal=closeModal;window.doLogin=doLogin;window.doLogout=doLogout;
+window.addEventListener('unhandledrejection',function(e){
+  const m=(e.reason&&e.reason.message)?e.reason.message:String(e.reason||'');
+  if(m){try{toast('Erro: '+m);}catch(_){}console.error('Falha:',e.reason);}
+});
 function togglePw(){const p=document.getElementById('lg_pass'),e=document.getElementById('lg_eye');if(!p)return;if(p.type==='password'){p.type='text';if(e)e.textContent='🙈';}else{p.type='password';if(e)e.textContent='👁';}}
 async function doLogin(){
   const email=val('lg_email'),pass=(document.getElementById('lg_pass')||{}).value||'';
