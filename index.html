@@ -103,6 +103,8 @@
   /* Modal */
   .overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow-y:auto}
   .modal{background:#fff;border-radius:14px;width:100%;max-width:640px;box-shadow:0 20px 40px rgba(0,0,0,.2)}
+  .modal.wide{max-width:860px}
+  .overlay.l2{z-index:60}
   .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
   .modal .mh h3{margin:0;font-size:17px}
   .modal .mb{padding:22px}
@@ -187,6 +189,7 @@
   </main>
 </div>
 <div id="modalRoot"></div>
+<div id="modalRoot2"></div>
 <div id="toast"></div>
 
 <script>
@@ -311,8 +314,10 @@ function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;'
 /* ============ TOAST / MODAL ============ */
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
-function openModal(html){document.getElementById('modalRoot').innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">'+html+'</div></div>';}
+function openModal(html,cls){document.getElementById('modalRoot').innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal '+(cls||'')+'">'+html+'</div></div>';}
 function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+function openModal2(html,cls){document.getElementById('modalRoot2').innerHTML='<div class="overlay l2" onclick="if(event.target===this)closeModal2()"><div class="modal '+(cls||'')+'">'+html+'</div></div>';}
+function closeModal2(){document.getElementById('modalRoot2').innerHTML='';}
 
 /* ============ NAV ============ */
 function counts(){const c={};ETAPAS.forEach(e=>c[e.key]=db.lancamentos.filter(l=>l.etapa===e.key).length);return c;}
@@ -321,7 +326,7 @@ function renderNav(){
   const c=counts();
   let h='';
   if(can('dashboard'))h+=navItem('dashboard','📊 Dashboard');
-  if(can('novo'))h+=navItem('novo','➕ Novo Lançamento');
+  if(can('novo'))h+='<div class="nav-item" onclick="openLancModal()">➕ Novo Lançamento</div>';
   if(can('fluxo'))h+='<div class="nav-sec">Fluxo de Serviços</div>'+
     ETAPAS.map(e=>`<div class="nav-item ${state.view==='pipe:'+e.key?'active':''}" onclick="go('pipe:${e.key}')"><span class="dot" style="background:${e.color}"></span>${e.label}${c[e.key]?`<span class="cnt">${c[e.key]}</span>`:''}</div>`).join('');
   if(can('reprovados')){const nr=db.lancamentos.filter(l=>l.etapa==='reprovado').length;
@@ -352,7 +357,7 @@ function render(){
   const t=document.getElementById('pageTitle'),s=document.getElementById('pageSub'),v=document.getElementById('view');
   destroyCharts();
   if(state.view==='dashboard'){t.textContent='Dashboard';s.textContent='Horas, custo e metas';v.innerHTML=viewDashboard();mountChart();mountMetaChart();}
-  else if(state.view==='novo'){t.textContent=editingId?'Editar Lançamento':'Novo Lançamento';s.textContent='Ordem de serviço';v.innerHTML=viewForm();initLancForm();}
+  else if(state.view==='novo'){state.view='dashboard';t.textContent='Dashboard';s.textContent='Horas, custo e metas';v.innerHTML=viewDashboard();mountChart();mountMetaChart();openLancModal();}
   else if(state.view==='clientes'){t.textContent='Clientes';s.textContent=db.clientes.length+' cadastrados';v.innerHTML=viewClientes();}
   else if(state.view==='tecnicos'){t.textContent='Técnicos';s.textContent=db.tecnicos.length+' cadastrados';v.innerHTML=viewTecnicos();}
   else if(state.view==='tipos'){t.textContent='Tipos de Serviço';s.textContent=db.tipos_servico.length+' cadastrados';v.innerHTML=viewTipos();}
@@ -596,7 +601,8 @@ function viewClientes(){
 }
 function formCliente(id,fromForm){
   const c=id?db.clientes.find(x=>x.id===id):{};
-  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} cliente</h3><button class="x" onclick="closeModal()">×</button></div>
+  const open=fromForm?openModal2:openModal, cm=fromForm?'closeModal2()':'closeModal()';
+  open(`<div class="mh"><h3>${id?'Editar':'Novo'} cliente</h3><button class="x" onclick="${cm}">×</button></div>
     <div class="mb">
       <div class="field"><label>Nome *</label><input id="f_nome" value="${esc(c.nome)}"></div>
       <div class="row2"><div class="field"><label>Contato</label><input id="f_contato" value="${esc(c.contato)}"></div>
@@ -604,7 +610,7 @@ function formCliente(id,fromForm){
       <div class="field"><label>E-mail</label><input id="f_email" value="${esc(c.email)}"></div>
       <div class="field"><label>Endereço</label><input id="f_endereco" value="${esc(c.endereco)}"></div>
     </div>
-    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <div class="mf"><button class="btn" onclick="${cm}">Cancelar</button>
     <button class="btn primary" onclick="saveCliente(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
 }
 async function saveCliente(id,fromForm){
@@ -612,7 +618,7 @@ async function saveCliente(id,fromForm){
   if(!o.nome){toast('Informe o nome');return;}
   const saved=await (id?store.update('clientes',id,o):store.insert('clientes',o));
   await refresh();
-  if(fromForm){refillSelect('l_cli',db.clientes,saved.id);closeModal();toast('Cliente salvo');}
+  if(fromForm){refillSelect('l_cli',db.clientes,saved.id);closeModal2();toast('Cliente salvo');}
   else{closeModal();render();toast('Cliente salvo');}
 }
 
@@ -627,7 +633,8 @@ function viewTecnicos(){
 }
 function formTecnico(id,fromForm){
   const t=id?db.tecnicos.find(x=>x.id===id):{};
-  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} técnico</h3><button class="x" onclick="closeModal()">×</button></div>
+  const open=fromForm?openModal2:openModal, cm=fromForm?'closeModal2()':'closeModal()';
+  open(`<div class="mh"><h3>${id?'Editar':'Novo'} técnico</h3><button class="x" onclick="${cm}">×</button></div>
     <div class="mb">
       <div class="field"><label>Nome *</label><input id="f_nome" value="${esc(t.nome)}"></div>
       <div class="row2">
@@ -637,7 +644,7 @@ function formTecnico(id,fromForm){
       <div class="field"><label>Custo por hora (R$)</label><input id="f_custo" type="number" step="0.01" value="${t.custo_hora||''}">
         <div class="hint">Calculado automaticamente (salário ÷ horas previstas). Você pode ajustar manualmente.</div></div>
     </div>
-    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <div class="mf"><button class="btn" onclick="${cm}">Cancelar</button>
     <button class="btn primary" onclick="saveTecnico(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
 }
 function recalcCusto(){const h=Number(val('f_horas')),s=Number(val('f_salario'));
@@ -649,7 +656,7 @@ async function saveTecnico(id,fromForm){
   if(!o.nome){toast('Informe o nome');return;}
   const saved=await (id?store.update('tecnicos',id,o):store.insert('tecnicos',o));
   await refresh();
-  if(fromForm){addTecRow(saved.id);recalcValor();closeModal();toast('Técnico salvo');}
+  if(fromForm){addTecRow(saved.id);recalcValor();closeModal2();toast('Técnico salvo');}
   else{closeModal();render();toast('Técnico salvo');}
 }
 
@@ -662,10 +669,11 @@ function viewTipos(){
 }
 function formTipo(id,fromForm){
   const t=id?db.tipos_servico.find(x=>x.id===id):{};
-  openModal(`<div class="mh"><h3>${id?'Editar':'Novo'} tipo de serviço</h3><button class="x" onclick="closeModal()">×</button></div>
+  const open=fromForm?openModal2:openModal, cm=fromForm?'closeModal2()':'closeModal()';
+  open(`<div class="mh"><h3>${id?'Editar':'Novo'} tipo de serviço</h3><button class="x" onclick="${cm}">×</button></div>
     <div class="mb"><div class="field"><label>Nome *</label><input id="f_nome" value="${esc(t.nome)}"></div>
     <div class="field"><label>Descrição</label><textarea id="f_desc">${esc(t.descricao)}</textarea></div></div>
-    <div class="mf"><button class="btn" onclick="closeModal()">Cancelar</button>
+    <div class="mf"><button class="btn" onclick="${cm}">Cancelar</button>
     <button class="btn primary" onclick="saveTipo(${id||'null'},${fromForm?'true':'false'})">Salvar</button></div>`);
 }
 async function saveTipo(id,fromForm){
@@ -673,16 +681,15 @@ async function saveTipo(id,fromForm){
   if(!o.nome){toast('Informe o nome');return;}
   const saved=await (id?store.update('tipos_servico',id,o):store.insert('tipos_servico',o));
   await refresh();
-  if(fromForm){refillSelect('l_tipo',db.tipos_servico,saved.id);closeModal();toast('Tipo salvo');}
+  if(fromForm){refillSelect('l_tipo',db.tipos_servico,saved.id);closeModal2();toast('Tipo salvo');}
   else{closeModal();render();toast('Tipo salvo');}
 }
 
 /* ============ FORM LANÇAMENTO ============ */
 function optList(arr,sel){return '<option value="">Selecione…</option>'+arr.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.nome)}</option>`).join('');}
-function viewForm(){
-  const l=editingId?db.lancamentos.find(x=>x.id===editingId):{data_abertura:isoDay(new Date()),local_trabalho:'interno',etapa:'orcado'};
+function lancFields(l){
   const aviso=(!db.clientes.length||!db.tecnicos.length||!db.tipos_servico.length)?'<div class="banner">Você pode cadastrar cliente, técnico e tipo de serviço direto aqui pelos botões “+”.</div>':'';
-  return aviso+`<div class="card" style="max-width:760px;padding:24px">
+  return aviso+`
     <div class="row2">
       <div class="field"><label>Cliente * <button type="button" class="mini-add" onclick="formCliente(null,true)">+ novo</button></label><select id="l_cli">${optList(db.clientes,l.cliente_id)}</select></div>
       <div class="field"><label>Tipo de serviço * <button type="button" class="mini-add" onclick="formTipo(null,true)">+ novo</button></label><select id="l_tipo">${optList(db.tipos_servico,l.tipo_servico_id)}</select></div>
@@ -711,12 +718,18 @@ function viewForm(){
       </div>
     </div>
     <div class="field"><label>Etapa</label><select id="l_etapa">${ETAPAS.map(e=>`<option value="${e.key}" ${l.etapa===e.key?'selected':''}>${e.label}</option>`).join('')}</select></div>
-    <div class="field"><label>Descrição do serviço</label><textarea id="l_desc">${esc(l.descricao)}</textarea></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
-      ${editingId?'<button class="btn" onclick="editingId=null;go(\'pipe:\'+db.lancamentos.find(x=>x.id==='+editingId+').etapa)">Cancelar</button>':''}
+    <div class="field"><label>Descrição do serviço</label><textarea id="l_desc">${esc(l.descricao)}</textarea></div>`;
+}
+function openLancModal(id){
+  editingId=id||null;
+  const l=editingId?db.lancamentos.find(x=>x.id===editingId):{data_abertura:isoDay(new Date()),local_trabalho:'interno',etapa:'orcado'};
+  openModal(`<div class="mh"><h3>${editingId?'Editar':'Novo'} lançamento</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb">${lancFields(l)}</div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
       <button class="btn primary" onclick="saveLanc(${editingId||'null'})">${editingId?'Salvar alterações':'Criar lançamento'}</button>
-    </div>
-  </div>`;
+    </div>`,'wide');
+  initLancForm();
 }
 async function saveLanc(id){
   const ids=getTecIds();
@@ -728,7 +741,7 @@ async function saveLanc(id){
     hora_inicio:val('l_hi')||null,hora_fim:val('l_hf')||null,valor:+(horas*somaCusto).toFixed(2),etapa:val('l_etapa'),descricao:val('l_desc')};
   if(!o.cliente_id||!ids.length||!o.tipo_servico_id){toast('Cliente, técnico e tipo são obrigatórios');return;}
   const saved=await (id?store.update('lancamentos',id,o):store.insert('lancamentos',o));
-  editingId=null;await refresh();go('pipe:'+saved.etapa);toast('Lançamento salvo');
+  editingId=null;await refresh();closeModal();go('pipe:'+saved.etapa);toast('Lançamento salvo');
 }
 
 /* ============ PIPELINE ============ */
@@ -796,7 +809,7 @@ function lancCard(l){
         ${l.etapa==='orcado'?`<button class="btn sm primary" style="background:var(--st-aprovado);border-color:var(--st-aprovado)" onclick="aprovarDireto(${l.id})">✓ Aprovar direto →</button>`:''}
         ${(l.etapa==='orcado'||l.etapa==='aguardando_cliente')?`<button class="btn sm" style="border-color:#FDA29B;color:#B42318" onclick="modalReprovar(${l.id})">✗ Reprovar</button>`:''}
         <button class="btn sm" onclick="modalFollowup(${l.id})">💬 Follow-up${fu?' ('+fu+')':''}</button>
-        <button class="btn sm" onclick="editingId=${l.id};go('novo')">✎ Editar</button>
+        <button class="btn sm" onclick="openLancModal(${l.id})">✎ Editar</button>
         <button class="btn sm danger" onclick="del('lancamentos',${l.id})">🗑</button>
       </div></div>`;
 }
@@ -928,7 +941,7 @@ function allowedView(v){
   if(v.startsWith('pipe:'))return can('fluxo');
   return true;
 }
-function firstAllowed(){return ['dashboard','novo','pipe:orcado','reprovados','clientes','tecnicos','tipos','metas','usuarios'].find(allowedView)||'dashboard';}
+function firstAllowed(){return ['dashboard','pipe:orcado','reprovados','clientes','tecnicos','tipos','metas','usuarios'].find(allowedView)||'dashboard';}
 
 function viewUsuarios(){
   const rows=db.usuarios.map(u=>{
