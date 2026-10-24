@@ -218,6 +218,21 @@
   .pdf-mode .kgrid{grid-template-columns:repeat(var(--kc,6),minmax(0,1fr))}
   .pdf-mode .sgrid{grid-template-columns:repeat(var(--sc,8),minmax(0,1fr))}
   .pie-wrap{display:grid;grid-template-columns:minmax(0,1fr);height:320px}
+  /* v5: Nº da OS + séries do gráfico + drill-down */
+  .os-tag{display:inline-flex;align-items:center;gap:4px;background:#F2701A;color:#fff;font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:7px;letter-spacing:.3px;vertical-align:middle;margin-left:8px;box-shadow:0 0 0 2px rgba(242,112,26,.25);white-space:nowrap}
+  .ser-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .ser-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);color:var(--text2);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none}
+  .ser-chip .sw{width:11px;height:11px;border-radius:3px;background:var(--c);opacity:.35}
+  .ser-chip.on{border-color:var(--c);color:var(--ink);background:color-mix(in srgb,var(--c) 10%,var(--card))}
+  .ser-chip.on .sw{opacity:1}
+  .dd-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+  .dd-kpis .kc{border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .dd-tbl{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:52vh}
+  .dd-tbl th{position:sticky;top:0;background:var(--soft2);z-index:1}
+  .dd-tbl td,.dd-tbl th{padding:9px 11px;white-space:nowrap}
+  .dd-tbl td.wrap{white-space:normal;min-width:160px}
+  .et-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--c)}
+  .os-mini{color:#F2701A;font-weight:800}
   @media(max-width:820px){
     #app{flex-direction:column}
     aside{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto}
@@ -363,8 +378,10 @@ const state={
   dashMes:String(new Date().getMonth()+1),
   metaAno:new Date().getFullYear(),
   repAno:new Date().getFullYear(),
-  repMes:'todos'
+  repMes:'todos',
+  chartSeries:{realizadas:true,meta:true,orcadas:false,cobradas:false,reprovadas:false}
 };
+let drillCtx=null;
 let editingId=null, charts=[];
 function destroyCharts(){charts.forEach(c=>{try{c.destroy();}catch(e){}});charts=[];}
 
@@ -518,7 +535,8 @@ function viewDashboard(){
   </div></div>
   <div class="card pdf-block" style="padding:20px;margin-bottom:18px">
     <h3 style="margin:0 0 4px">Horas realizadas × previstas (meta) por técnico</h3>
-    <div class="hint" style="margin-bottom:14px">Meta = meta de horas por técnico do período (tela “Metas”); se o mês não tiver meta, usa as horas previstas/mês do técnico.</div>
+    <div class="hint" style="margin-bottom:12px">Meta = meta de horas por técnico do período (tela “Metas”); se o mês não tiver meta, usa as horas previstas/mês do técnico.<span class="no-pdf"> Selecione as séries abaixo e clique numa barra para abrir os lançamentos.</span></div>
+    <div class="ser-chips no-pdf">${SERIES.map(s=>`<span class="ser-chip ${state.chartSeries[s.key]?'on':''}" style="--c:${s.cor}" onclick="toggleSerie('${s.key}')"><span class="sw"></span>${s.label}</span>`).join('')}</div>
     <div style="height:360px"><canvas id="chart"></canvas></div>
   </div>
   <div class="card pdf-block" style="padding:20px">
@@ -551,24 +569,98 @@ function barOpts(extra){
     scales:{x:{grid:{display:false},ticks:{font:{weight:'600'}}},
       y:{beginAtZero:true,grace:'8%',grid:{color:()=>T('--soft2')},border:{display:false},title:{display:true,text:'Horas'}}}},extra||{});
 }
-function mountChart(){
-  const ls=lancsFiltrados();
-  const labels=[],horas=[],meta=[];
-  db.tecnicos.forEach(t=>{
-    const meus=ls.filter(l=>lancTecIds(l).includes(t.id));
-    const h=meus.reduce((a,l)=>a+horasLanc(l),0);
-    labels.push(t.nome);horas.push(+h.toFixed(2));
-    meta.push(+metaTecPeriodo(t,state.dashAno,state.dashMes).toFixed(2));
-  });
-  const ctx=document.getElementById('chart');if(!ctx)return;
-  if(!labels.length){ctx.parentElement.innerHTML='<div class="empty"><div class="big">📊</div>Nenhum técnico cadastrado.</div>';return;}
-  charts.push(new Chart(ctx,{type:'bar',plugins:[ChartDataLabels],data:{labels,datasets:[
-    {label:'Horas realizadas',data:horas,backgroundColor:grad('#FDBA74','#F2701A'),borderRadius:8,borderSkipped:false,maxBarThickness:70,
-      datalabels:{...DL_BAR,color:'#C1662E',display:true,formatter:v=>num(v)+' h'}},
-    {label:'Horas previstas (meta)',data:meta,backgroundColor:metaGrad(),borderRadius:8,borderSkipped:false,maxBarThickness:70,
-      datalabels:{...DL_BAR,color:'#475467',formatter:v=>v?num(v)+' h':''}}]},
-    options:barOpts()}));
+/* ---- séries do gráfico por técnico ---- */
+const SERIES=[
+  {key:'realizadas',label:'Horas realizadas',cor:'#F2701A'},
+  {key:'meta',label:'Horas previstas (meta)',cor:'#94A3B8'},
+  {key:'orcadas',label:'Horas orçadas',cor:'#2563EB'},
+  {key:'cobradas',label:'Horas cobradas',cor:'#16A34A'},
+  {key:'reprovadas',label:'Horas reprovadas',cor:'#DC2626'}
+];
+function toggleSerie(k){
+  state.chartSeries[k]=!state.chartSeries[k];
+  if(!SERIES.some(s=>state.chartSeries[s.key]))state.chartSeries[k]=true;
+  render();
 }
+// lançamentos de cada série no período do dashboard
+function lancsSerie(key){
+  const A=state.dashAno,M=state.dashMes;
+  if(key==='reprovadas')return db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),A,M));
+  const base=db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),A,M));
+  if(key==='orcadas')return base.filter(l=>['orcado','aguardando_cliente'].includes(l.etapa));
+  if(key==='cobradas')return base.filter(l=>['cobranca','finalizado'].includes(l.etapa));
+  return base; // realizadas / meta
+}
+function mountChart(){
+  const ctx=document.getElementById('chart');if(!ctx)return;
+  if(!db.tecnicos.length){ctx.parentElement.innerHTML='<div class="empty"><div class="big">📊</div>Nenhum técnico cadastrado.</div>';return;}
+  const labels=db.tecnicos.map(t=>t.nome), tecIds=db.tecnicos.map(t=>t.id);
+  const horasTec=key=>{const ls=lancsSerie(key);return db.tecnicos.map(t=>+ls.filter(l=>lancTecIds(l).includes(t.id)).reduce((a,l)=>a+horasLanc(l),0).toFixed(2));};
+  const fmt=v=>v?num(v)+' h':'';
+  const cfg={
+    realizadas:()=>({data:horasTec('realizadas'),backgroundColor:grad('#FDBA74','#F2701A'),datalabels:{...DL_BAR,color:'#C1662E',display:true,formatter:v=>num(v)+' h'}}),
+    meta:()=>({data:db.tecnicos.map(t=>+metaTecPeriodo(t,state.dashAno,state.dashMes).toFixed(2)),backgroundColor:metaGrad(),datalabels:{...DL_BAR,color:'#475467',formatter:fmt}}),
+    orcadas:()=>({data:horasTec('orcadas'),backgroundColor:grad('#93C5FD','#2563EB'),datalabels:{...DL_BAR,color:'#2563EB',formatter:fmt}}),
+    cobradas:()=>({data:horasTec('cobradas'),backgroundColor:grad('#86EFAC','#16A34A'),datalabels:{...DL_BAR,color:()=>T('--ok-tx'),formatter:fmt}}),
+    reprovadas:()=>({data:horasTec('reprovadas'),backgroundColor:grad('#FCA5A5','#DC2626'),datalabels:{...DL_BAR,color:()=>T('--danger-tx'),formatter:fmt}})
+  };
+  const datasets=SERIES.filter(s=>state.chartSeries[s.key]).map(s=>({label:s.label,_key:s.key,borderRadius:8,borderSkipped:false,maxBarThickness:70,...cfg[s.key]()}));
+  const opts=barOpts({
+    onClick:(evt,els,chart)=>{if(!els.length)return;const e=els[0];openDrill(tecIds[e.index],chart.data.datasets[e.datasetIndex]._key);},
+    onHover:(evt,els)=>{const c=evt.native&&evt.native.target;if(c)c.style.cursor=els.length?'pointer':'default';}
+  });
+  opts.plugins.legend.onClick=(e,item)=>{const ds=datasets[item.datasetIndex];if(ds)toggleSerie(ds._key);};
+  charts.push(new Chart(ctx,{type:'bar',plugins:[ChartDataLabels],data:{labels,datasets},options:opts}));
+}
+/* ---- drill-down: lançamentos do técnico na série clicada ---- */
+function openDrill(tecId,serie){drillCtx={tecId,serie:serie==='meta'?'realizadas':serie,q:''};renderDrill();}
+function closeDrill(){drillCtx=null;closeModal();}
+function etapaInfo(k){return k==='reprovado'?{label:'Reprovado',color:'var(--st-reprovado)'}:(ETAPAS.find(e=>e.key===k)||{label:k,color:'var(--muted)'});}
+function renderDrill(){
+  if(!drillCtx)return;
+  const t=tecById(drillCtx.tecId), s=SERIES.find(x=>x.key===drillCtx.serie);
+  const all=lancsSerie(drillCtx.serie).filter(l=>lancTecIds(l).includes(drillCtx.tecId))
+    .sort((a,b)=>String(b.data_abertura||'')>String(a.data_abertura||'')?1:-1);
+  const q=ssNorm(drillCtx.q);
+  const ls=q?all.filter(l=>ssNorm([l.numero_os,nome(db.clientes,l.cliente_id),nome(db.tipos_servico,l.tipo_servico_id),l.descricao].join(' ')).includes(q)):all;
+  const hTot=ls.reduce((a,l)=>a+horasLanc(l),0), vTot=ls.reduce((a,l)=>a+(Number(l.valor)||0),0);
+  const serieOpts=SERIES.filter(x=>x.key!=='meta').map(x=>`<option value="${x.key}" ${x.key===drillCtx.serie?'selected':''}>${x.label}</option>`).join('');
+  const rows=ls.map(l=>{const e=etapaInfo(l.etapa);return `<tr>
+      <td>${l.numero_os?`<span class="os-mini">${esc(l.numero_os)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td class="wrap"><b>${esc(nome(db.clientes,l.cliente_id))}</b><div class="cli">${esc(nome(db.tipos_servico,l.tipo_servico_id))}</div></td>
+      <td><span class="et-pill" style="--c:${e.color}">${e.label}</span></td>
+      <td>${brDate(l.data_abertura)}</td>
+      <td>${brDate(l.etapa==='reprovado'?l.data_reprovacao:l.data_execucao)}</td>
+      <td>${l.hora_inicio?`${l.hora_inicio}–${l.hora_fim||'?'}`:'—'}</td>
+      <td style="text-align:right"><b>${num(horasLanc(l))} h</b></td>
+      <td style="text-align:right">${brl(l.valor)}</td>
+      <td style="text-align:right"><button class="btn sm" onclick="drillEdit(${l.id})">✎ Editar</button>
+        <button class="btn sm danger" onclick="drillDel(${l.id})" title="Excluir">🗑</button></td></tr>`;}).join('');
+  openModal(`<div class="mh"><div><h3>${esc(t?t.nome:'—')} · <span style="color:${s.cor}">${s.label}</span></h3>
+      <div class="hint" style="margin-top:2px">Período: ${periodoLabel()}</div></div>
+      <button class="x" onclick="closeDrill()">×</button></div>
+    <div class="mb">
+      <div class="toolbar" style="margin-bottom:12px">
+        <select style="width:auto" onchange="drillCtx.serie=this.value;renderDrill()">${serieOpts}</select>
+        <input id="dd_q" placeholder="Buscar por OS, cliente, serviço…" value="${esc(drillCtx.q)}" style="flex:1;min-width:200px" oninput="drillCtx.q=this.value;renderDrill();">
+      </div>
+      <div class="dd-kpis">
+        <div class="kc"><div class="lbl">Lançamentos</div><div class="val">${ls.length}</div></div>
+        <div class="kc"><div class="lbl">Horas</div><div class="val">${num(hTot)}<small> h</small></div></div>
+        <div class="kc"><div class="lbl">Valor</div><div class="val" style="color:var(--brand)">${brl(vTot)}</div></div>
+      </div>
+      ${ls.length?`<div class="dd-tbl"><table><thead><tr><th>Nº OS</th><th>Cliente / Serviço</th><th>Etapa</th><th>Abertura</th><th>${drillCtx.serie==='reprovadas'?'Reprovação':'Execução'}</th><th>Horário</th><th style="text-align:right">Horas</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        :'<div class="empty"><div class="big">📭</div>Nenhum lançamento encontrado.</div>'}
+    </div>
+    <div class="mf"><button class="btn" onclick="closeDrill()">Fechar</button></div>`,'wide');
+  const qi=document.getElementById('dd_q');if(qi&&drillCtx.q){qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length);}
+}
+function drillEdit(id){openLancModal(id,true);}
+async function drillDel(id){
+  if(!confirm('Confirma a exclusão deste lançamento? Esta ação não pode ser desfeita.'))return;
+  await store.remove('lancamentos',id);await refresh();render();renderDrill();toast('Excluído');
+}
+function closeLancModal(){closeModal();if(drillCtx)renderDrill();}
 function mountMetaChart(){
   const ctx=document.getElementById('chartMeta');if(!ctx)return;
   const meta=[],real=[],cob=[];
@@ -891,9 +983,12 @@ function lancFields(l){
       <div class="field"><label>Tipo de serviço * <button type="button" class="mini-add" onclick="formTipo(null,true)">+ novo</button></label><select id="l_tipo">${optList(db.tipos_servico,l.tipo_servico_id)}</select></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Local do trabalho</label><select id="l_local">
-        <option value="interno" ${l.local_trabalho==='interno'?'selected':''}>Interno</option>
-        <option value="externo" ${l.local_trabalho==='externo'?'selected':''}>Externo</option></select></div>
+      <div>
+        <div class="field"><label>Local do trabalho</label><select id="l_local">
+          <option value="interno" ${l.local_trabalho==='interno'?'selected':''}>Interno</option>
+          <option value="externo" ${l.local_trabalho==='externo'?'selected':''}>Externo</option></select></div>
+        <div class="field"><label>Nº da OS</label><input id="l_os" value="${esc(l.numero_os)}" placeholder="Ex.: 1234" maxlength="30"></div>
+      </div>
       <div class="field"><label>Técnico(s) * <button type="button" class="mini-add" onclick="formTecnico(null,true)">+ cadastrar</button></label>
         <div id="l_tecs"></div>
         <button type="button" class="btn sm" style="margin-top:2px" onclick="addTecRow()">+ adicionar técnico</button>
@@ -913,16 +1008,17 @@ function lancFields(l){
         <div class="hint">Total de horas × soma do custo/hora dos técnicos.</div>
       </div>
     </div>
-    <div class="field"><label>Etapa</label><select id="l_etapa">${ETAPAS.map(e=>`<option value="${e.key}" ${l.etapa===e.key?'selected':''}>${e.label}</option>`).join('')}</select></div>
+    <div class="field"><label>Etapa</label><select id="l_etapa">${ETAPAS.map(e=>`<option value="${e.key}" ${l.etapa===e.key?'selected':''}>${e.label}</option>`).join('')}${l.etapa==='reprovado'?'<option value="reprovado" selected>Reprovado</option>':''}</select></div>
     <div class="field"><label>Descrição do serviço</label><textarea id="l_desc">${esc(l.descricao)}</textarea></div>`;
 }
-function openLancModal(id){
+function openLancModal(id,fromDrill){
+  if(!fromDrill)drillCtx=null;
   editingId=id||null;
   const l=editingId?db.lancamentos.find(x=>x.id===editingId):{data_abertura:isoDay(new Date()),local_trabalho:'interno',etapa:'orcado'};
-  openModal(`<div class="mh"><h3>${editingId?'Editar':'Novo'} lançamento</h3><button class="x" onclick="closeModal()">×</button></div>
+  openModal(`<div class="mh"><h3>${editingId?'Editar':'Novo'} lançamento</h3><button class="x" onclick="closeLancModal()">×</button></div>
     <div class="mb">${lancFields(l)}</div>
     <div class="mf">
-      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="closeLancModal()">Cancelar</button>
       <button class="btn primary" onclick="saveLanc(${editingId||'null'})">${editingId?'Salvar alterações':'Criar lançamento'}</button>
     </div>`,'wide');
   initLancForm();
@@ -934,10 +1030,13 @@ async function saveLanc(id){
   const o={
     cliente_id:Number(val('l_cli'))||null,tecnico_id:ids[0]||null,tecnico_ids:ids,tipo_servico_id:Number(val('l_tipo'))||null,
     local_trabalho:val('l_local'),data_abertura:val('l_dab')||null,data_execucao:val('l_dex')||null,data_finalizacao:val('l_dfi')||null,
-    hora_inicio:val('l_hi')||null,hora_fim:val('l_hf')||null,valor:+(horas*somaCusto).toFixed(2),etapa:val('l_etapa'),descricao:val('l_desc')};
+    hora_inicio:val('l_hi')||null,hora_fim:val('l_hf')||null,valor:+(horas*somaCusto).toFixed(2),etapa:val('l_etapa'),descricao:val('l_desc'),
+    numero_os:val('l_os')||null};
   if(!o.cliente_id||!ids.length||!o.tipo_servico_id){toast('Cliente, técnico e tipo são obrigatórios');return;}
   const saved=await (id?store.update('lancamentos',id,o):store.insert('lancamentos',o));
-  editingId=null;await refresh();closeModal();go('pipe:'+saved.etapa);toast('Lançamento salvo');
+  editingId=null;await refresh();
+  if(drillCtx){render();renderDrill();toast('Lançamento salvo');return;}
+  closeModal();go(saved.etapa==='reprovado'?'reprovados':'pipe:'+saved.etapa);toast('Lançamento salvo');
 }
 
 /* ============ PIPELINE ============ */
@@ -985,9 +1084,10 @@ function lancCard(l){
   const h=horasLanc(l);
   const prox=idx<ETAPAS.length-1?ETAPAS[idx+1]:null;
   const ant=idx>0?ETAPAS[idx-1]:null;
+  const showOS=l.numero_os&&idx<=ETAPAS.findIndex(e=>e.key==='cobranca');
   return `<div class="card lanc" style="border-left-color:${etapa.color}">
       <div class="h"><div>
-        <div class="title">${esc(nome(db.tipos_servico,l.tipo_servico_id))}</div>
+        <div class="title">${esc(nome(db.tipos_servico,l.tipo_servico_id))}${showOS?`<span class="os-tag">OS ${esc(l.numero_os)}</span>`:''}</div>
         <div class="cli">${esc(nome(db.clientes,l.cliente_id))} · Técnico(s): ${esc(tecNomes(l))}</div>
       </div><span class="badge ${l.local_trabalho}">${l.local_trabalho==='interno'?'Interno':'Externo'}</span></div>
       <div class="meta">
