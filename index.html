@@ -233,6 +233,31 @@
   .dd-tbl td.wrap{white-space:normal;min-width:160px}
   .et-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--c)}
   .os-mini{color:#F2701A;font-weight:800}
+  /* v6: filtro global de cliente, ranking e OS por cliente */
+  .gcli{display:flex;align-items:center;gap:8px;width:300px}
+  .gcli .lbl{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .gcli.on .ss-in{border-color:var(--brand);box-shadow:0 0 0 3px rgba(242,112,26,.15);font-weight:700}
+  .gcli .clr{border:none;background:none;color:var(--muted);cursor:pointer;font-size:17px;padding:0 2px}
+  .rank{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
+  .rk{display:grid;grid-template-columns:30px minmax(0,1.3fr) minmax(0,2fr) 70px 120px;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;transition:border-color .12s,background .12s}
+  .rk:hover{border-color:var(--brand);background:var(--hl-bg)}
+  .rk .pos{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;background:var(--soft2);color:var(--label)}
+  .rk:nth-child(1) .pos{background:#F2701A;color:#fff}.rk:nth-child(2) .pos{background:#FDBA74;color:#7C2D12}.rk:nth-child(3) .pos{background:#FED7AA;color:#7C2D12}
+  .rk .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stk{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--soft2)}
+  .stk span{height:100%}
+  .rk .q{font-weight:800;font-size:16px;text-align:right}.rk .q small{font-size:11px;color:var(--muted);font-weight:600}
+  .rk .v{text-align:right;font-size:12.5px;color:var(--text2);font-weight:600}
+  .leg{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin-bottom:10px}
+  .leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .oscli{margin-bottom:16px;overflow:hidden}
+  .oscli .hd{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--soft)}
+  .oscli .hd h3{margin:0;font-size:15.5px}
+  .oscli .hd .sm{font-size:12px;color:var(--muted);font-weight:600}
+  .oscli .hd .chips{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+  .oscli table td,.oscli table th{white-space:nowrap}
+  .ostb{overflow-x:auto}
+  @media(max-width:820px){.gcli{width:100%}.rk{grid-template-columns:28px 1fr 60px}.rk .stk,.rk .v{display:none}}
   @media(max-width:820px){
     #app{flex-direction:column}
     aside{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto}
@@ -273,7 +298,8 @@
         <h1 id="pageTitle">Dashboard</h1>
         <div class="sub" id="pageSub"></div>
       </div>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"></button>
+      <div id="hdrCli" style="margin-left:auto"></div>
+      <button class="theme-btn" id="themeBtn" style="margin-left:0" onclick="toggleTheme()"></button>
     </header>
     <div class="content" id="view"></div>
   </main>
@@ -379,8 +405,22 @@ const state={
   metaAno:new Date().getFullYear(),
   repAno:new Date().getFullYear(),
   repMes:'todos',
-  chartSeries:{realizadas:true,meta:true,orcadas:false,cobradas:false,reprovadas:false}
+  chartSeries:{realizadas:true,meta:true,orcadas:false,cobradas:false,reprovadas:false},
+  cliFiltro:null,
+  osAno:'todos',osMes:'todos',osTipo:'',osQ:''
 };
+// lançamentos respeitando o filtro global de cliente
+function LF(){return state.cliFiltro?db.lancamentos.filter(l=>l.cliente_id===state.cliFiltro):db.lancamentos;}
+const CLI_VIEWS=v=>v==='dashboard'||v==='reprovados'||v==='os'||v.startsWith('pipe:');
+function renderCliFilter(){
+  const box=document.getElementById('hdrCli');if(!box)return;
+  if(!CLI_VIEWS(state.view)){box.innerHTML='';return;}
+  box.innerHTML=`<div class="gcli ${state.cliFiltro?'on':''}"><span class="lbl">🏢 Cliente</span>
+    <select id="g_cli" onchange="setCliFiltro(this.value)"><option value="">Todos os clientes</option>${db.clientes.slice().sort((a,b)=>String(a.nome).localeCompare(b.nome)).map(c=>`<option value="${c.id}" ${c.id===state.cliFiltro?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>
+    ${state.cliFiltro?'<button class="clr" title="Limpar filtro de cliente" onclick="setCliFiltro(\'\')">✕</button>':''}</div>`;
+  const s=document.getElementById('g_cli');makeSearchable(s);s._ss.inp.placeholder='Todos os clientes';
+}
+function setCliFiltro(v){state.cliFiltro=Number(v)||null;render();}
 let drillCtx=null;
 let editingId=null, charts=[];
 function destroyCharts(){charts.forEach(c=>{try{c.destroy();}catch(e){}});charts=[];}
@@ -412,16 +452,16 @@ function openModal2(html,cls){document.getElementById('modalRoot2').innerHTML='<
 function closeModal2(){document.getElementById('modalRoot2').innerHTML='';}
 
 /* ============ NAV ============ */
-function counts(){const c={};ETAPAS.forEach(e=>c[e.key]=db.lancamentos.filter(l=>l.etapa===e.key).length);return c;}
+function counts(){const c={};ETAPAS.forEach(e=>c[e.key]=LF().filter(l=>l.etapa===e.key).length);return c;}
 function navItem(v,label){return `<div class="nav-item ${state.view===v?'active':''}" onclick="go('${v}')">${label}</div>`;}
 function renderNav(){
   const c=counts();
   let h='';
   if(can('dashboard'))h+=navItem('dashboard','📊 Dashboard');
   if(can('novo'))h+='<div class="nav-item" onclick="openLancModal()">➕ Novo Lançamento</div>';
-  if(can('fluxo'))h+='<div class="nav-sec">Fluxo de Serviços</div>'+
+  if(can('fluxo'))h+='<div class="nav-sec">Fluxo de Serviços</div>'+navItem('os','📋 OS por Cliente')+
     ETAPAS.map(e=>`<div class="nav-item ${state.view==='pipe:'+e.key?'active':''}" onclick="go('pipe:${e.key}')"><span class="dot" style="background:${e.color}"></span>${e.label}${c[e.key]?`<span class="cnt">${c[e.key]}</span>`:''}</div>`).join('');
-  if(can('reprovados')){const nr=db.lancamentos.filter(l=>l.etapa==='reprovado').length;
+  if(can('reprovados')){const nr=LF().filter(l=>l.etapa==='reprovado').length;
     h+=`<div class="nav-item ${state.view==='reprovados'?'active':''}" onclick="go('reprovados')"><span class="dot" style="background:var(--st-reprovado)"></span>Reprovados${nr?`<span class="cnt">${nr}</span>`:''}</div>`;}
   if(can('clientes')||can('tecnicos')||can('tipos')||can('metas')){
     h+='<div class="nav-sec">Cadastros</div>';
@@ -456,8 +496,10 @@ function render(){
   else if(state.view==='usuarios'){t.textContent='Usuários e Permissões';s.textContent=db.usuarios.length+' usuários';v.innerHTML=viewUsuarios();}
   else if(state.view==='metas'){t.textContent='Metas';s.textContent='Metas de horas por mês';v.innerHTML=viewMetas();}
   else if(state.view==='reprovados'){t.textContent='Reprovados';s.textContent='Pedidos reprovados';v.innerHTML=viewReprovados();mountRepChart();mountMotivosChart();}
+  else if(state.view==='os'){t.textContent='OS por Cliente';s.textContent='Todas as OS do cliente e a fase de cada uma';v.innerHTML=viewOS();}
   else if(state.view.startsWith('pipe:')){const e=ETAPAS.find(x=>'pipe:'+x.key===state.view);
     t.textContent=e.label;s.textContent='Fluxo de serviços';v.innerHTML=viewPipeline(e);}
+  renderCliFilter();
 }
 
 /* ============ DASHBOARD ============ */
@@ -474,7 +516,7 @@ function yearsAvailable(){
   return [...set].sort((a,b)=>b-a);
 }
 function inPeriodo(d,ano,mes){if(!d)return false;d=String(d).slice(0,10);if(+d.slice(0,4)!==+ano)return false;if(mes!=='todos'&&+d.slice(5,7)!==+mes)return false;return true;}
-function lancsFiltrados(){return db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),state.dashAno,state.dashMes));}
+function lancsFiltrados(){return LF().filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),state.dashAno,state.dashMes));}
 function metaPorTec(ano,mes){const m=(db.metas||[]).find(x=>+x.ano===+ano&&+x.mes===+mes);return m?Number(m.meta_horas)||0:0;}
 function nTecnicos(){return db.tecnicos.length;}
 function metaFor(ano,mes){return metaPorTec(ano,mes)*nTecnicos();}
@@ -483,13 +525,13 @@ function metaTecPeriodo(t,ano,mes){
   if(mes==='todos'){let s=0;for(let m=1;m<=12;m++)s+=um(m);return s;}
   return um(+mes);
 }
-function horasRealizadasMes(ano,mes){return db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
-function horasCobradasMes(ano,mes){return db.lancamentos.filter(l=>['cobranca','finalizado'].includes(l.etapa)&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
+function horasRealizadasMes(ano,mes,src){return (src||LF()).filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
+function horasCobradasMes(ano,mes,src){return (src||LF()).filter(l=>['cobranca','finalizado'].includes(l.etapa)&&inPeriodo(refMonth(l),ano,mes)).reduce((a,l)=>a+horasLanc(l),0);}
 function viewDashboard(){
   const ls=lancsFiltrados();
   const totHoras=ls.reduce((a,l)=>a+horasLanc(l),0);
   const totCusto=ls.reduce((a,l)=>a+custoLanc(l),0);
-  const emExec=db.lancamentos.filter(l=>l.etapa==='em_execucao').length;
+  const emExec=LF().filter(l=>l.etapa==='em_execucao').length;
   const fin=ls.filter(l=>l.etapa==='finalizado'&&leadTime(l)!=null);
   const leadMedio=fin.length?fin.reduce((a,l)=>a+leadTime(l),0)/fin.length:null;
   const anoInteiro=state.dashMes==='todos';
@@ -526,13 +568,14 @@ function viewDashboard(){
   <div class="pdf-block" style="margin-bottom:18px"><div class="sec-h">Fluxo de serviços <small>situação atual<span class="no-pdf"> · clique para abrir</span></small></div>
   <div class="sgrid">
     ${[...ETAPAS,{key:'reprovado',label:'Reprovados',color:'var(--st-reprovado)'}].map(e=>{
-      const ls=db.lancamentos.filter(l=>l.etapa===e.key),v=ls.reduce((a,l)=>a+(Number(l.valor)||0),0);
+      const ls=LF().filter(l=>l.etapa===e.key),v=ls.reduce((a,l)=>a+(Number(l.valor)||0),0);
       const dest=e.key==='reprovado'?'reprovados':'pipe:'+e.key, ok=e.key==='reprovado'?can('reprovados'):can('fluxo');
       return `<div class="card st ${ok?'':'off'}" style="--c:${e.color}" ${ok?`onclick="go('${dest}')"`:''}>
         <div class="lbl" title="${e.label}"><span class="dot"></span>${({orcado:'Orçados',aguardando_cliente:'Enviados',aprovado:'Aprovados',aguardando_compras:'Ag. compras',em_execucao:'Em execução',cobranca:'Cobrança',finalizado:'Finalizados',reprovado:'Reprovados'})[e.key]||e.label}</div>
         <div class="val">${ls.length}</div>
         <div class="sub">${v?brl(v):'—'}</div></div>`;}).join('')}
   </div></div>
+  ${viewRankClientes()}
   <div class="card pdf-block" style="padding:20px;margin-bottom:18px">
     <h3 style="margin:0 0 4px">Horas realizadas × previstas (meta) por técnico</h3>
     <div class="hint" style="margin-bottom:12px">Meta = meta de horas por técnico do período (tela “Metas”); se o mês não tiver meta, usa as horas previstas/mês do técnico.<span class="no-pdf"> Selecione as séries abaixo e clique numa barra para abrir os lançamentos.</span></div>
@@ -585,8 +628,8 @@ function toggleSerie(k){
 // lançamentos de cada série no período do dashboard
 function lancsSerie(key){
   const A=state.dashAno,M=state.dashMes;
-  if(key==='reprovadas')return db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),A,M));
-  const base=db.lancamentos.filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),A,M));
+  if(key==='reprovadas')return LF().filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),A,M));
+  const base=LF().filter(l=>l.etapa!=='reprovado'&&inPeriodo(refMonth(l),A,M));
   if(key==='orcadas')return base.filter(l=>['orcado','aguardando_cliente'].includes(l.etapa));
   if(key==='cobradas')return base.filter(l=>['cobranca','finalizado'].includes(l.etapa));
   return base; // realizadas / meta
@@ -618,6 +661,7 @@ function closeDrill(){drillCtx=null;closeModal();}
 function etapaInfo(k){return k==='reprovado'?{label:'Reprovado',color:'var(--st-reprovado)'}:(ETAPAS.find(e=>e.key===k)||{label:k,color:'var(--muted)'});}
 function renderDrill(){
   if(!drillCtx)return;
+  if(drillCtx.type==='cli')return renderCliDrill();
   const t=tecById(drillCtx.tecId), s=SERIES.find(x=>x.key===drillCtx.serie);
   const all=lancsSerie(drillCtx.serie).filter(l=>lancTecIds(l).includes(drillCtx.tecId))
     .sort((a,b)=>String(b.data_abertura||'')>String(a.data_abertura||'')?1:-1);
@@ -661,6 +705,113 @@ async function drillDel(id){
   await store.remove('lancamentos',id);await refresh();render();renderDrill();toast('Excluído');
 }
 function closeLancModal(){closeModal();if(drillCtx)renderDrill();}
+
+/* ============ RANKING DE CLIENTES (OS em aberto) ============ */
+const ABERTO=l=>l.etapa!=='finalizado'&&l.etapa!=='reprovado';
+const ETAPAS_ABERTAS=()=>ETAPAS.filter(e=>e.key!=='finalizado');
+function osLabel(l){return l.numero_os?`<span class="os-mini">${esc(l.numero_os)}</span>`:'<span style="color:var(--muted)">—</span>';}
+function viewRankClientes(){
+  const map={};
+  LF().filter(ABERTO).forEach(l=>{const k=l.cliente_id;(map[k]=map[k]||[]).push(l);});
+  const rank=Object.keys(map).map(k=>({id:+k,ls:map[k],v:map[k].reduce((a,l)=>a+(Number(l.valor)||0),0)}))
+    .sort((a,b)=>b.ls.length-a.ls.length||b.v-a.v);
+  const max=rank.length?rank[0].ls.length:1;
+  const et=ETAPAS_ABERTAS();
+  const rows=rank.map((r,i)=>`<div class="rk" onclick="openCliDrill(${r.id})" title="Abrir OS em aberto de ${esc(nome(db.clientes,r.id))}">
+      <span class="pos">${i+1}</span>
+      <span class="nm">${esc(nome(db.clientes,r.id))}</span>
+      <div class="stk" style="width:${Math.max(r.ls.length/max*100,8)}%">${et.map(e=>{const n=r.ls.filter(l=>l.etapa===e.key).length;return n?`<span style="width:${n/r.ls.length*100}%;background:${e.color}" title="${e.label}: ${n}"></span>`:'';}).join('')}</div>
+      <span class="q">${r.ls.length}<small> OS</small></span>
+      <span class="v">${brl(r.v)}</span></div>`).join('');
+  return `<div class="card pdf-block" style="padding:20px;margin-bottom:18px">
+    <h3 style="margin:0 0 4px">Ranking de clientes — OS em aberto</h3>
+    <div class="hint" style="margin-bottom:10px">Situação atual (todas as etapas antes de “Finalizado”, sem reprovados).<span class="no-pdf"> Clique no cliente para abrir as OS.</span></div>
+    <div class="leg">${et.map(e=>`<span><i style="background:${e.color}"></i>${e.label}</span>`).join('')}</div>
+    ${rank.length?`<div class="rank">${rows}</div>`:'<div class="empty" style="padding:24px"><div class="big">✅</div>Nenhuma OS em aberto.</div>'}
+  </div>`;
+}
+function openCliDrill(cliId){drillCtx={type:'cli',cliId,todas:false};renderCliDrill();}
+function renderCliDrill(){
+  const c=db.clientes.find(x=>x.id===drillCtx.cliId)||{};
+  const all=db.lancamentos.filter(l=>l.cliente_id===drillCtx.cliId);
+  const ls=(drillCtx.todas?all:all.filter(ABERTO)).slice().sort((a,b)=>String(b.data_abertura||'')>String(a.data_abertura||'')?1:-1);
+  const vTot=ls.reduce((a,l)=>a+(Number(l.valor)||0),0);
+  const rows=ls.map(l=>{const e=etapaInfo(l.etapa);return `<tr>
+      <td>${osLabel(l)}</td>
+      <td class="wrap"><b>${esc(nome(db.tipos_servico,l.tipo_servico_id))}</b><div class="cli">Técnico(s): ${esc(tecNomes(l))}</div></td>
+      <td><span class="et-pill" style="--c:${e.color}">${e.label}</span></td>
+      <td>${brDate(l.data_abertura)}</td>
+      <td>${ABERTO(l)&&l.data_abertura?diasEmAberto(l)+' dia(s)':(leadTime(l)!=null?leadTime(l)+' dia(s)':'—')}</td>
+      <td style="text-align:right">${brl(l.valor)}</td>
+      <td style="text-align:right"><button class="btn sm" onclick="modalFollowup(${l.id})" title="Follow-up">💬</button>
+        <button class="btn sm" onclick="drillEdit(${l.id})">✎ Editar</button>
+        <button class="btn sm danger" onclick="drillDel(${l.id})" title="Excluir">🗑</button></td></tr>`;}).join('');
+  openModal(`<div class="mh"><div><h3>${esc(c.nome||'—')}</h3>
+      <div class="hint" style="margin-top:2px">${drillCtx.todas?'Todas as OS':'OS em aberto'} · ${ls.length} OS · ${brl(vTot)}</div></div>
+      <button class="x" onclick="closeDrill()">×</button></div>
+    <div class="mb">
+      <div class="toolbar" style="margin-bottom:12px">
+        <label class="switch"><input type="checkbox" style="width:auto" ${drillCtx.todas?'checked':''} onchange="drillCtx.todas=this.checked;renderCliDrill()"> Mostrar também finalizadas e reprovadas</label>
+        <button class="btn sm" style="margin-left:auto" onclick="closeDrill();state.cliFiltro=${drillCtx.cliId};go('os')">📋 Abrir em “OS por Cliente”</button>
+      </div>
+      <div class="dd-kpis">${ETAPAS_ABERTAS().slice(0,3).length?'':''}</div>
+      ${ls.length?`<div class="dd-tbl"><table><thead><tr><th>Nº OS</th><th>Serviço</th><th>Fase</th><th>Abertura</th><th>Dias</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        :'<div class="empty"><div class="big">📭</div>Nenhuma OS encontrada.</div>'}
+    </div>
+    <div class="mf"><button class="btn" onclick="closeDrill()">Fechar</button></div>`,'wide');
+}
+
+/* ============ OS POR CLIENTE ============ */
+function osPeriodoOk(l){const d=l.data_abertura;if(state.osAno==='todos')return true;return inPeriodo(d,state.osAno,state.osMes);}
+function viewOS(){
+  const anos=yearsAvailable();
+  const anoOpts=`<option value="todos" ${state.osAno==='todos'?'selected':''}>Todos os anos</option>`+anos.map(y=>`<option value="${y}" ${+state.osAno===y?'selected':''}>${y}</option>`).join('');
+  const mesOpts=`<option value="todos" ${state.osMes==='todos'?'selected':''}>Todos os meses</option>`+
+    MESES.map((nm,i)=>`<option value="${i+1}" ${(state.osMes!=='todos'&&+state.osMes===i+1)?'selected':''}>${nm}</option>`).join('');
+  const tipoOpts='<option value="">Todos os tipos</option>'+db.tipos_servico.map(t=>`<option value="${t.id}" ${+state.osTipo===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
+  const q=ssNorm(state.osQ);
+  const ls=LF().filter(l=>osPeriodoOk(l)&&(!state.osTipo||l.tipo_servico_id===+state.osTipo)&&
+    (!q||ssNorm([l.numero_os,nome(db.tipos_servico,l.tipo_servico_id),l.descricao].join(' ')).includes(q)));
+  const todasEt=[...ETAPAS,{key:'reprovado',label:'Reprovados',color:'var(--st-reprovado)'}];
+  const abertas=ls.filter(ABERTO).length, valor=ls.reduce((a,l)=>a+(Number(l.valor)||0),0);
+  // resumo por fase
+  const resumo=`<div class="sgrid" style="margin-bottom:16px">${todasEt.map(e=>{const n=ls.filter(l=>l.etapa===e.key).length;
+    return `<div class="card st off" style="--c:${e.color}"><div class="lbl"><span class="dot"></span>${e.label}</div><div class="val">${n}</div></div>`;}).join('')}</div>`;
+  // agrupado por cliente
+  const grupos={};ls.forEach(l=>{(grupos[l.cliente_id]=grupos[l.cliente_id]||[]).push(l);});
+  const ord=Object.keys(grupos).map(Number).sort((a,b)=>String(nome(db.clientes,a)).localeCompare(nome(db.clientes,b)));
+  const blocos=ord.map(cid=>{
+    const g=grupos[cid].slice().sort((a,b)=>String(b.data_abertura||'')>String(a.data_abertura||'')?1:-1);
+    const chips=todasEt.map(e=>{const n=g.filter(l=>l.etapa===e.key).length;return n?`<span class="et-pill" style="--c:${e.color}">${e.label}: ${n}</span>`:'';}).join('');
+    const rows=g.map(l=>{const e=etapaInfo(l.etapa);return `<tr>
+        <td>${osLabel(l)}</td>
+        <td><b>${esc(nome(db.tipos_servico,l.tipo_servico_id))}</b></td>
+        <td><span class="et-pill" style="--c:${e.color}">${e.label}</span></td>
+        <td>${esc(tecNomes(l))}</td>
+        <td>${brDate(l.data_abertura)}</td><td>${brDate(l.data_execucao)}</td><td>${brDate(l.etapa==='reprovado'?l.data_reprovacao:l.data_finalizacao)}</td>
+        <td>${ABERTO(l)&&l.data_abertura?diasEmAberto(l)+' dia(s) em aberto':(leadTime(l)!=null?leadTime(l)+' dia(s)':'—')}</td>
+        <td style="text-align:right">${brl(l.valor)}</td>
+        <td style="text-align:right"><button class="btn sm" onclick="modalFollowup(${l.id})" title="Follow-up">💬</button>
+          <button class="btn sm" onclick="openLancModal(${l.id})">✎ Editar</button></td></tr>`;}).join('');
+    const ab=g.filter(ABERTO).length, vv=g.reduce((a,l)=>a+(Number(l.valor)||0),0);
+    return `<div class="card oscli"><div class="hd"><h3>🏢 ${esc(nome(db.clientes,cid))}</h3>
+        <span class="sm">${g.length} OS · ${ab} em aberto · ${brl(vv)}</span><div class="chips">${chips}</div></div>
+      <div class="ostb"><table><thead><tr><th>Nº OS</th><th>Serviço</th><th>Fase atual</th><th>Técnico(s)</th><th>Abertura</th><th>Execução</th><th>Finalização</th><th>Prazo</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join('');
+  return `<div class="toolbar">
+      <span style="font-weight:600">Abertura:</span>
+      <select style="width:auto" onchange="state.osMes=this.value;render()" ${state.osAno==='todos'?'disabled title="Escolha um ano para filtrar por mês"':''}>${mesOpts}</select>
+      <select style="width:auto" onchange="state.osAno=this.value==='todos'?'todos':+this.value;if(state.osAno==='todos')state.osMes='todos';render()">${anoOpts}</select>
+      <select style="width:auto" onchange="state.osTipo=this.value;render()">${tipoOpts}</select>
+      <input id="os_q" placeholder="Buscar nº da OS ou serviço…" value="${esc(state.osQ)}" style="width:240px" oninput="state.osQ=this.value;osSearch()">
+      ${(state.osAno!=='todos'||state.osTipo||state.osQ||state.cliFiltro)?'<button class="btn sm" onclick="state.osAno=\'todos\';state.osMes=\'todos\';state.osTipo=\'\';state.osQ=\'\';state.cliFiltro=null;render()">Limpar filtros</button>':''}
+    </div>
+    <div class="hint" style="margin-bottom:12px">Pesquise o cliente no campo <b>🏢 Cliente</b> no topo da tela. ${ls.length} OS · ${abertas} em aberto · ${brl(valor)}</div>
+    ${resumo}
+    ${ls.length?blocos:'<div class="card"><div class="empty"><div class="big">📋</div>Nenhuma OS encontrada com esses filtros.</div></div>'}`;
+}
+let _osT=null;
+function osSearch(){clearTimeout(_osT);_osT=setTimeout(()=>{render();const i=document.getElementById('os_q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250);}
 function mountMetaChart(){
   const ctx=document.getElementById('chartMeta');if(!ctx)return;
   const meta=[],real=[],cob=[];
@@ -734,7 +885,7 @@ async function exportDashPDF(orient){
 function viewMetas(){
   const anoOpts=yearsAvailable().map(y=>`<option value="${y}" ${+state.metaAno===y?'selected':''}>${y}</option>`).join('');
   const nt=nTecnicos();
-  const rows=MESES.map((nm,i)=>{const mes=i+1,mt=metaPorTec(state.metaAno,mes),meta=mt*nt,real=horasRealizadasMes(state.metaAno,mes),cob=horasCobradasMes(state.metaAno,mes),pct=meta>0?Math.round(real/meta*100):0;
+  const rows=MESES.map((nm,i)=>{const mes=i+1,mt=metaPorTec(state.metaAno,mes),meta=mt*nt,real=horasRealizadasMes(state.metaAno,mes,db.lancamentos),cob=horasCobradasMes(state.metaAno,mes,db.lancamentos),pct=meta>0?Math.round(real/meta*100):0;
     return `<tr><td><b>${nm}</b></td>
       <td><input type="number" step="0.5" min="0" id="meta_${mes}" value="${mt||''}" style="width:110px" placeholder="0" oninput="metaPrev(${mes})"></td>
       <td id="metatot_${mes}"><b>${num(meta)} h</b></td>
@@ -802,7 +953,7 @@ function viewReprovados(){
   const anoOpts=yearsAvailable().map(y=>`<option value="${y}" ${+state.repAno===y?'selected':''}>${y}</option>`).join('');
   const mesOpts=`<option value="todos" ${state.repMes==='todos'?'selected':''}>Ano inteiro</option>`+
     MESES.map((nm,i)=>`<option value="${i+1}" ${(state.repMes!=='todos'&&+state.repMes===i+1)?'selected':''}>${nm}</option>`).join('');
-  const reprov=db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
+  const reprov=LF().filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
   const qtd=reprov.length, valor=reprov.reduce((a,l)=>a+(Number(l.valor)||0),0);
   const cards=reprov.slice().sort((a,b)=>repDate(a)<repDate(b)?1:-1).map(l=>`<div class="card lanc" style="border-left-color:var(--st-reprovado)">
       <div class="h"><div>
@@ -843,7 +994,7 @@ function viewReprovados(){
 function mountRepChart(){
   const ctx=document.getElementById('chartRep');if(!ctx)return;
   const qt=[],vl=[];
-  for(let m=1;m<=12;m++){const ls=db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,m));
+  for(let m=1;m<=12;m++){const ls=LF().filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,m));
     qt.push(ls.length);vl.push(ls.reduce((a,l)=>a+(Number(l.valor)||0),0));}
   charts.push(new Chart(ctx,{type:'bar',plugins:[ChartDataLabels],data:{labels:MESES_C,datasets:[
     {label:'Pedidos reprovados',data:qt,backgroundColor:grad('#FCA5A5','#DC2626'),hoverBackgroundColor:grad('#F87171','#B91C1C'),
@@ -862,7 +1013,7 @@ function mountRepChart(){
 }
 function mountMotivosChart(){
   const ctx=document.getElementById('chartMotivos');if(!ctx)return;
-  const reprov=db.lancamentos.filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
+  const reprov=LF().filter(l=>l.etapa==='reprovado'&&inPeriodo(repDate(l),state.repAno,state.repMes));
   const map={};
   reprov.forEach(l=>{const m=l.motivo_reprovacao||'(sem motivo)';map[m]=(map[m]||0)+1;});
   const labels=Object.keys(map).sort((a,b)=>map[b]-map[a]), data=labels.map(k=>map[k]);
@@ -1110,7 +1261,7 @@ function lancCard(l){
       </div></div>`;
 }
 function viewPipeline(etapa){
-  const all=db.lancamentos.filter(l=>l.etapa===etapa.key);
+  const all=LF().filter(l=>l.etapa===etapa.key);
   const shown=state.wkFilterOn?all.filter(inWeek):all;
   const empty=`<div class="card"><div class="empty"><div class="big">📭</div>Nenhum serviço nesta etapa${state.wkFilterOn?' na semana selecionada':''}.</div></div>`;
   let body='';
@@ -1273,7 +1424,7 @@ function allowedView(v){
   if(v==='usuarios')return can('usuarios');
   if(v==='metas')return can('metas');
   if(v==='reprovados')return can('reprovados');
-  if(v.startsWith('pipe:'))return can('fluxo');
+  if(v.startsWith('pipe:')||v==='os')return can('fluxo');
   return true;
 }
 function firstAllowed(){return ['dashboard','pipe:orcado','reprovados','clientes','tecnicos','tipos','metas','usuarios'].find(allowedView)||'dashboard';}
